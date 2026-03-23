@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Git Visual Manager</title>
+  <link rel="stylesheet" href="/vendor/hljs/styles/atom-one-dark.min.css" />
+  <script src="/vendor/hljs/build/highlight.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════ HEADER ══════════════════════════════ -->
+  <header class="header">
+    <div class="header-brand">
+      <span class="logo">⟁</span>
+      <span class="logo-text">GitFlow</span>
+    </div>
+    <div class="header-repo">
+      <input type="text" id="repoPath" class="repo-input" placeholder="Ruta del repositorio…" />
+      <span id="repoPathDisplay" class="repo-path-display" style="display:none"></span>
+      <div id="headerWelcomeActions" class="header-group">
+        <button id="btnBrowse" class="btn btn-secondary btn-icon-text" title="Seleccionar carpeta">📁</button>
+        <button id="btnLoadRepo" class="btn btn-primary">Abrir</button>
+      </div>
+      <div id="headerGitActions" class="header-group" style="display:none">
+        <button id="btnSync"    class="btn btn-secondary btn-xs" title="Fetch + Pull en un clic">⇄↓ Sync</button>
+        <button id="btnFetch"   class="btn btn-secondary btn-xs">⇄ Fetch</button>
+        <button id="btnPull"    class="btn btn-secondary btn-xs">↓ Pull</button>
+        <button id="btnPush"    class="btn btn-push btn-xs">↑ Push</button>
+        <button id="btnPushProd" class="btn btn-prod btn-xs">🚀 Prod</button>
+        <button id="btnCreatePR" class="btn btn-pr btn-xs">⎇ PR</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════ REPO TAB BAR ═════════════════════════════════ -->
+  <div id="repoTabBar" class="repo-tab-bar">
+    <div id="repoTabList" class="repo-tab-list"></div>
+    <button id="btnNewTab" class="btn btn-icon rt-new" title="Abrir nuevo repositorio">＋</button>
+  </div>
+
+  <!-- ══════════════════════════ TOOLBAR ═══════════════════════════════════════ -->
+  <div id="toolbar" class="toolbar" style="display:none">
+    <div class="tb-group">
+      <button class="tb-btn" id="tbCommit">
+        <span class="tb-icon">⑂</span>
+        <span class="tb-label">Commit</span>
+        <span id="tbCommitBadge" class="tb-badge" style="display:none">0</span>
+      </button>
+      <button class="tb-btn" id="tbPull">
+        <span class="tb-icon">↓</span>
+        <span class="tb-label">Pull</span>
+      </button>
+      <button class="tb-btn tb-push" id="tbPush">
+        <span class="tb-icon">↑</span>
+        <span class="tb-label">Push</span>
+      </button>
+      <button class="tb-btn" id="tbFetch">
+        <span class="tb-icon">⟳</span>
+        <span class="tb-label">Fetch</span>
+      </button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <button class="tb-btn" id="tbBranch">
+        <span class="tb-icon">⎇</span>
+        <span class="tb-label">Rama</span>
+      </button>
+      <button class="tb-btn" id="tbStash">
+        <span class="tb-icon">◫</span>
+        <span class="tb-label">Stash</span>
+      </button>
+      <button class="tb-btn" id="tbTag">
+        <span class="tb-icon">◈</span>
+        <span class="tb-label">Tag</span>
+      </button>
+      <button class="tb-btn tb-danger" id="tbDiscard">
+        <span class="tb-icon">↺</span>
+        <span class="tb-label">Descartar</span>
+      </button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <button class="tb-btn" id="tbRecover" title="Recuperar stashes o ramas eliminadas">
+        <span class="tb-icon">⟳</span>
+        <span class="tb-label">Recuperar</span>
+      </button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <button class="tb-btn tb-prod" id="tbProd">
+        <span class="tb-icon">🚀</span>
+        <span class="tb-label">Producción</span>
+      </button>
+      <button class="tb-btn tb-pr" id="tbPR">
+        <span class="tb-icon">⤢</span>
+        <span class="tb-label">PR</span>
+      </button>
+    </div>
+    <div class="tb-spacer"></div>
+    <button id="btnGitignore" class="tb-btn tb-right" title="Editar .gitignore">
+      <span class="tb-icon">🚫</span>
+      <span class="tb-label">.gitignore</span>
+    </button>
+    <button id="btnRefresh" class="tb-btn tb-right" title="Actualizar (F5)">
+      <span class="tb-icon">↻</span>
+      <span class="tb-label">Actualizar</span>
+    </button>
+    <button id="btnSettings" class="tb-btn tb-right" title="Configuración">
+      <span class="tb-icon">⚙</span>
+      <span class="tb-label">Ajustes</span>
+    </button>
+  </div>
+
+  <!-- ════════════════════════════ WELCOME SCREEN ══════════════════════════════ -->
+  <div id="welcome" class="welcome">
+    <div class="welcome-card">
+      <div class="welcome-logo">⟁</div>
+      <h1>Git <span>Visual</span> Manager</h1>
+      <p>Gestiona tus repositorios Git de forma visual desde el navegador</p>
+      <div class="welcome-input-row">
+        <input type="text" id="welcomePath" class="repo-input" placeholder="C:/ruta/de/tu/proyecto" />
+        <button id="btnWelcomeBrowse" class="btn btn-secondary btn-icon-text" title="Seleccionar carpeta">📁</button>
+        <button id="btnWelcomeOpen" class="btn btn-primary btn-lg">Abrir Repositorio</button>
+        <button id="btnWelcomeClone" class="btn btn-secondary btn-lg">Clonar URL</button>
+      </div>
+      <div id="recentRepos" class="recent-list"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ MAIN LAYOUT ═════════════════════════════════ -->
+  <div id="mainLayout" class="app-layout" style="display:none">
+
+    <!-- ── SIDEBAR ─────────────────────────────────────────────── -->
+    <aside class="sidebar">
+
+      <!-- Sidebar Nav -->
+      <nav class="side-nav">
+        <button class="side-nav-btn active" data-panel="changes">
+          <span>≡</span> File Status
+        </button>
+        <button class="side-nav-btn" data-panel="log">
+          <span>◷</span> Historial
+        </button>
+        <button class="side-nav-btn" data-panel="prs">
+          <span>⤢</span> Pull Requests
+        </button>
+      </nav>
+
+      <!-- Repo info -->
+      <div class="side-section" id="sectionRepo">
+        <div class="side-header">
+          REPOSITORIO
+          <button class="section-toggle" onclick="toggleSection('sectionRepo')" title="Colapsar/Expandir">⌄</button>
+        </div>
+        <div id="repoInfo" class="repo-info-box"></div>
+      </div>
+      <div class="resizer resizer-row" id="repoResizer"></div>
+
+      <!-- Branches -->
+      <div class="side-section side-branches" id="sectionBranches">
+        <div class="side-header">
+          RAMAS
+          <div class="header-actions">
+            <button id="btnRefreshBranches" class="btn btn-xs btn-icon" title="Refrescar Ramas">↻</button>
+            <button id="btnCompareBranches" class="btn btn-xs btn-secondary" title="Comparar dos ramas">⎇ Diff</button>
+            <button class="btn btn-xs btn-secondary" onclick="openMergedBranchesModal()" title="Limpiar ramas mergeadas">🗑 Mergeadas</button>
+            <button id="btnNewBranch" class="btn btn-xs btn-primary">+ Nueva</button>
+            <button class="section-toggle" onclick="toggleSection('sectionBranches')" title="Colapsar/Expandir">⌄</button>
+          </div>
+        </div>
+        <div class="branch-filter-wrap">
+          <input type="text" id="branchFilter" class="branch-filter" placeholder="Filtrar ramas…" oninput="onBranchFilter()" />
+        </div>
+        <div id="branchList" class="branch-list"></div>
+      </div>
+      <div class="resizer resizer-row" id="branchesResizer"></div>
+
+      <!-- Tags -->
+      <div class="side-section side-tags" id="sectionTags">
+        <div class="side-header">
+          ETIQUETAS (TAGS)
+          <div class="header-actions">
+            <button id="btnNewTagSide" class="btn btn-xs btn-primary">+ Nueva</button>
+            <button class="section-toggle" onclick="toggleSection('sectionTags')" title="Colapsar/Expandir">⌄</button>
+          </div>
+        </div>
+        <div id="tagList" class="tag-list">
+          <div class="tag-empty">Sin etiquetas</div>
+        </div>
+      </div>
+      <div class="resizer resizer-row" id="tagsResizer"></div>
+
+      <!-- Stash -->
+      <div class="side-section side-stash" id="sectionStash">
+        <div class="side-header">
+          STASH
+          <div class="header-actions">
+            <button id="btnStashSave" class="btn btn-xs btn-stash" title="Guardar cambios en stash">+ Guardar</button>
+            <button class="section-toggle" onclick="toggleSection('sectionStash')" title="Colapsar/Expandir">⌄</button>
+          </div>
+        </div>
+        <div id="stashList" class="stash-list">
+          <div class="stash-empty">Sin stashes</div>
+        </div>
+      </div>
+
+      <!-- Actions removed from here (moved to header) -->
+    </aside>
+
+    <div class="resizer resizer-col" id="sidebarResizer"></div>
+
+    <!-- ── MAIN PANEL ───────────────────────────────────────────── -->
+    <main class="main-panel">
+
+      <!-- ── TAB: CHANGES ── -->
+      <div id="tab-changes" class="tab-pane active">
+        <div class="changes-grid">
+
+          <!-- Files column -->
+          <div class="files-col">
+            <div class="files-section">
+              <div class="files-hdr">
+                <span>Staged <span id="stagedCount" class="badge">0</span></span>
+                <div class="hdr-actions">
+                  <button id="btnStagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('staged')" title="Vista árbol">⊞</button>
+                  <button id="btnUnstageAll" class="btn btn-xs">Quitar todo</button>
+                </div>
+              </div>
+              <div id="stagedSelBar" class="sel-bar" style="display:none">
+                <span id="stagedSelCount" class="sel-count"></span>
+                <button class="btn btn-xs" onclick="unstageSelected()">− Quitar</button>
+                <button class="btn btn-xs btn-warn" onclick="untrackSelected()" title="Quitar del tracking (git rm --cached)">🚫 Untrack</button>
+                <button class="btn btn-xs btn-icon" onclick="clearFileSelection('staged')" title="Limpiar selección">✕</button>
+              </div>
+              <div id="stagedFiles" class="file-list"
+                ondragover="fileDragOver(event,'staged')"
+                ondragleave="fileDragLeave(event)"
+                ondrop="fileDrop(event,'staged')"></div>
+            </div>
+            <div class="resizer resizer-row" id="stagedResizer"></div>
+            <div class="files-section">
+              <div class="files-hdr">
+                <span>Pendientes <span id="unstagedCount" class="badge badge-warn">0</span></span>
+                <div class="hdr-actions">
+                  <button id="btnUnstagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('unstaged')" title="Vista árbol">⊞</button>
+                  <button id="btnDiscardAll" class="btn btn-xs btn-secondary">Descartar todo</button>
+                  <button id="btnStageAll" class="btn btn-xs btn-primary">Stage todo</button>
+                </div>
+              </div>
+              <div id="unstagedSelBar" class="sel-bar" style="display:none">
+                <span id="unstagedSelCount" class="sel-count"></span>
+                <button class="btn btn-xs btn-primary" onclick="stageSelected()">+ Stage</button>
+                <button class="btn btn-xs btn-secondary" onclick="discardSelected()">⟲ Descartar</button>
+                <button class="btn btn-xs btn-icon" onclick="clearFileSelection('unstaged')" title="Limpiar selección">✕</button>
+              </div>
+              <div id="unstagedFiles" class="file-list"
+                ondragover="fileDragOver(event,'unstaged')"
+                ondragleave="fileDragLeave(event)"
+                ondrop="fileDrop(event,'unstaged')"></div>
+            </div>
+          </div>
+
+          <div class="resizer resizer-col" id="filesResizer"></div>
+
+          <!-- Commit + Diff column -->
+          <div class="commit-col">
+            <div class="commit-box">
+              <textarea id="commitMessage" class="commit-input" placeholder="Mensaje del commit…" rows="3"></textarea>
+              <div class="commit-action-row">
+                <div class="commit-templates-bar">
+                  <button class="btn btn-secondary btn-xs" onclick="toggleTemplateDropdown(event)">📋 Plantilla ▾</button>
+                  <div id="templateDropdown" class="template-dropdown" style="display:none"></div>
+                </div>
+                <div class="commit-checks">
+                  <label class="commit-check-label" title="Hacer push automáticamente después del commit">
+                    <input type="checkbox" id="chkCommitPush" /> Push
+                  </label>
+                  <label class="commit-check-label" title="Modificar el último commit en lugar de crear uno nuevo">
+                    <input type="checkbox" id="chkAmend" /> Amend
+                  </label>
+                </div>
+                <button id="btnCommit" class="btn btn-primary btn-flex" onclick="doCommit()">✓ Commit</button>
+              </div>
+            </div>
+            <div id="diffView" class="diff-view">
+              <div class="diff-hint">Selecciona un archivo para ver los cambios</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: STASH DIFF ── -->
+      <div id="tab-stash" class="tab-pane">
+        <div class="stash-view-hdr">
+          <span id="stashViewTitle" class="stash-view-title"></span>
+          <button class="btn btn-xs btn-secondary" onclick="switchToPanel('changes')">✕ Cerrar</button>
+        </div>
+        <div class="stash-view-grid">
+          <div id="stashFileList" class="stash-view-files file-list"></div>
+          <div class="resizer resizer-col" id="stashResizer"></div>
+          <div id="stashDiffView" class="diff-view">
+            <div class="diff-hint">Selecciona un archivo</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: LOG ── -->
+      <div id="tab-log" class="tab-pane">
+        <div class="log-header">
+          <input type="text" id="logSearch" class="log-search-input" placeholder="Buscar en historial…" />
+          <span id="logBranchIndicator" class="log-branch-indicator" style="display:none"></span>
+          <button id="btnLogAllBranches" class="btn btn-secondary btn-xs" title="Ver todas las ramas">Todas</button>
+          <button id="btnSearchLog" class="btn btn-secondary btn-xs">Buscar</button>
+        </div>
+        <div class="log-split">
+          <!-- Lista de commits -->
+          <div class="log-left">
+            <div class="log-container">
+              <div class="log-scroll-area">
+                <svg id="logGraph" class="log-graph-svg"></svg>
+                <div id="commitLog" class="log-list"></div>
+              </div>
+            </div>
+          </div>
+          <div class="resizer resizer-col" id="logResizer"></div>
+          <!-- Panel de detalle del commit -->
+          <div class="log-right" id="logDetail">
+            <div class="log-detail-empty" id="logDetailEmpty">Selecciona un commit</div>
+            <div id="logDetailContent" style="display:none">
+              <div class="log-detail-hdr" id="logDetailHdr"></div>
+              <div class="log-detail-files" id="logDetailFiles"></div>
+              <div class="resizer resizer-row" id="logDetailResizer" style="display:none"></div>
+              <div class="log-detail-diff" id="logDetailDiff"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: PRS ── -->
+      <div id="tab-prs" class="tab-pane">
+        <div class="prs-header">
+          <span id="prRepoLabel" class="pr-repo-label"></span>
+          <button id="btnRefreshPRs" class="btn btn-xs btn-secondary">↻ Actualizar</button>
+        </div>
+        <div id="prsList" class="prs-list"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ══════════════════════════════ MODALS ════════════════════════════════════ -->
+
+  <!-- Settings -->
+  <div id="modalSettings" class="modal-bg">
+    <div class="modal modal-settings">
+      <div class="modal-hdr">
+        <h2>Configuración</h2>
+        <button class="btn btn-icon close-btn" data-close="modalSettings">✕</button>
+      </div>
+      <div class="settings-tabs">
+        <button class="settings-tab-btn active" onclick="switchSettingsTab('general')">General</button>
+        <button class="settings-tab-btn"        onclick="switchSettingsTab('cuenta')">Cuenta</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- ── Tab: General ── -->
+        <div id="settingsTabGeneral" class="settings-tab-pane active">
+          <fieldset class="form-group-set">
+            <legend>Git — Identidad</legend>
+            <div class="form-row">
+              <label>Nombre</label>
+              <input type="text" id="cfgName" placeholder="Tu nombre" />
+            </div>
+            <div class="form-row">
+              <label>Email</label>
+              <input type="email" id="cfgEmail" placeholder="tu@email.com" />
+            </div>
+            <div class="form-row">
+              <label>
+                <input type="checkbox" id="cfgGlobal" checked />
+                Aplicar globalmente
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-group-set">
+            <legend>Remote</legend>
+            <div class="form-row">
+              <label>URL origen remoto</label>
+              <input type="text" id="cfgRemote" placeholder="https://github.com/usuario/repo.git" />
+              <small>Solo se añade si no existe ningún remote.</small>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-group-set">
+            <legend>Git — Ramas</legend>
+            <div class="form-row">
+              <label>Rama principal</label>
+              <input type="text" id="cfgMainBranch" placeholder="main" style="max-width:160px" />
+              <small>Rama de producción por defecto (main, master, trunk…). Se usa en Push a Producción y creación de PRs.</small>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-group-set">
+            <legend>Sincronización</legend>
+            <div class="form-row">
+              <label>Intervalo de auto-fetch (minutos, 0 = desactivado)</label>
+              <input type="number" id="cfgAutoFetch" class="input-sm" min="0" max="60" />
+            </div>
+            <div class="form-row">
+              <label class="check-label">
+                <input type="checkbox" id="cfgRebaseOnPull" />
+                Rebase en lugar de merge al hacer Pull
+              </label>
+              <small>Equivale a <code>git pull --rebase</code>. Mantiene un historial más limpio.</small>
+            </div>
+            <div class="form-row">
+              <label class="check-label">
+                <input type="checkbox" id="cfgAutoStash" />
+                Auto-stash al cambiar de rama
+              </label>
+              <small>Guarda los cambios sin commitear antes del checkout y los restaura al llegar.</small>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-group-set">
+            <legend>Vista</legend>
+            <div class="two-col">
+              <div class="form-row">
+                <label>Líneas de contexto en diff</label>
+                <select id="cfgDiffContext">
+                  <option value="3">3 (por defecto)</option>
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="99999">Completo</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Límite de commits en log</label>
+                <select id="cfgLogLimit">
+                  <option value="100">100</option>
+                  <option value="250">250</option>
+                  <option value="500">500</option>
+                  <option value="1000">1 000</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+
+        <!-- ── Tab: Cuenta ── -->
+        <div id="settingsTabCuenta" class="settings-tab-pane">
+          <div id="platformSettingsContainer">
+            <div style="color:var(--tx3);font-size:12px;padding:8px 0">Cargando plataformas…</div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalSettings">Cancelar</button>
+        <button id="btnSaveSettings" class="btn btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Branch -->
+  <div id="modalBranch" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>Nueva Rama</h2>
+        <button class="btn btn-icon close-btn" data-close="modalBranch">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Nombre</label>
+          <input type="text" id="newBranchName" placeholder="feature/mi-funcionalidad" />
+        </div>
+        <div class="form-row">
+          <label>Basada en</label>
+          <select id="newBranchFrom"></select>
+        </div>
+        <div class="form-row" style="margin-top:4px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:normal">
+            <input type="checkbox" id="newBranchNoCheckout" />
+            Solo crear (no cambiar de rama)
+          </label>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalBranch">Cancelar</button>
+        <button id="btnCreateBranch" class="btn btn-primary">Crear y Cambiar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Asignar rama remota -->
+  <div id="modalSetUpstream" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>Asignar rama remota</h2>
+        <button class="btn btn-icon close-btn" data-close="modalSetUpstream">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Rama local</label>
+          <span id="setUpstreamLocal" style="font-weight:600;color:var(--green)"></span>
+        </div>
+        <div class="form-row">
+          <label>Rama remota</label>
+          <select id="setUpstreamRemote" style="width:100%"></select>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalSetUpstream">Cancelar</button>
+        <button id="btnConfirmSetUpstream" class="btn btn-primary">Asignar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pull Request -->
+  <div id="modalPR" class="modal-bg">
+    <div class="modal">
+      <div class="modal-hdr">
+        <h2 id="modalPRTitle">Crear Pull Request</h2>
+        <button class="btn btn-icon close-btn" data-close="modalPR">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Título</label>
+          <input type="text" id="prTitle" placeholder="Título descriptivo del PR" />
+        </div>
+        <div class="form-row two-col">
+          <div>
+            <label>Desde (head)</label>
+            <select id="prHead"></select>
+          </div>
+          <div>
+            <label>Hacia (base)</label>
+            <select id="prBase"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Descripción</label>
+          <textarea id="prBody" rows="5" placeholder="Describe los cambios incluidos…"></textarea>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalPR">Cancelar</button>
+        <button id="btnSubmitPR" class="btn btn-primary">Crear PR en GitHub</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Push to Production -->
+  <div id="modalProd" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>🚀 Push a Producción</h2>
+        <button class="btn btn-icon close-btn" data-close="modalProd">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Rama de producción destino</label>
+          <input type="text" id="prodBranch" placeholder="main" style="max-width:200px" />
+          <small>Configurable en Ajustes → Ramas.</small>
+        </div>
+        <div class="form-row">
+          <label>
+            <input type="checkbox" id="prodMerge" checked />
+            Mergear rama actual antes de push
+          </label>
+          <small>Hará merge de tu rama actual a producción y luego push.</small>
+        </div>
+        <div class="alert-warn">
+          ⚠ Esta acción actualizará el código en producción. Asegúrate de haber testeado los cambios.
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalProd">Cancelar</button>
+        <button id="btnConfirmProd" class="btn btn-danger">🚀 Confirmar Push</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stash Modal -->
+  <div id="modalStash" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>📦 Guardar Stash</h2>
+        <button class="btn btn-icon close-btn" data-close="modalStash">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Descripción (opcional)</label>
+          <input type="text" id="stashMessage" placeholder="Ej: WIP pantalla de login" />
+        </div>
+        <div class="form-row">
+          <label>
+            <input type="checkbox" id="stashUntracked" />
+            Incluir archivos no rastreados
+          </label>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalStash">Cancelar</button>
+        <button id="btnConfirmStash" class="btn btn-stash">📦 Guardar Stash</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cherry-Pick Modal -->
+  <div id="modalCherryPick" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>🍒 Cherry-Pick Commit</h2>
+        <button class="btn btn-icon close-btn" data-close="modalCherryPick">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Commit a copiar</label>
+          <input type="text" id="cherryPickCommitHash" readonly />
+        </div>
+        <div class="form-row">
+          <label>Aplicar en rama existente</label>
+          <select id="cherryPickTargetBranch" class="form-select"></select>
+        </div>
+        <div class="form-row">
+          <label>O crear nueva rama y aplicar allí</label>
+          <input type="text" id="cherryPickNewBranchName" placeholder="nueva-rama-para-cambios" />
+        </div>
+        <div class="alert-warn">
+          ⚠ Se aplicará el commit seleccionado. Si hay conflictos, tendrás que resolverlos manualmente.
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalCherryPick">Cancelar</button>
+        <button id="btnConfirmCherryPick" class="btn btn-primary">🍒 Aplicar Cherry-Pick</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Folder Browser -->
+  <div id="modalBrowser" class="modal-bg">
+    <div class="modal modal-browser">
+      <div class="modal-hdr">
+        <h2>📁 Seleccionar Carpeta</h2>
+        <button class="btn btn-icon close-btn" data-close="modalBrowser">✕</button>
+      </div>
+
+      <!-- Quick access -->
+      <div class="browser-quick" id="browserQuick"></div>
+
+      <!-- Path bar -->
+      <div class="browser-pathbar">
+        <button id="browserUp" class="btn btn-icon" title="Carpeta superior">↑</button>
+        <div id="browserBreadcrumb" class="browser-breadcrumb"></div>
+      </div>
+
+      <!-- Directory listing -->
+      <div id="browserList" class="browser-list"></div>
+
+      <!-- Footer -->
+      <div class="modal-ftr browser-ftr">
+        <span id="browserSelectedLabel" class="browser-selected-label">—</span>
+        <button class="btn btn-secondary" data-close="modalBrowser">Cancelar</button>
+        <button id="btnSelectFolder" class="btn btn-primary">Seleccionar esta carpeta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toasts" class="toast-wrap"></div>
+
+  <!-- Operation overlay -->
+  <div id="opOverlay" class="op-overlay">
+    <div class="op-card">
+      <div class="spinner op-spinner"></div>
+      <div id="opLabel" class="op-label">Procesando…</div>
+      <button id="btnCancelOp" class="btn btn-secondary btn-xs">✕ Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Clone Repository Modal -->
+  <div id="modalClone" class="modal-bg">
+    <div class="modal">
+      <div class="modal-hdr">
+        <h2>Clonar Repositorio</h2>
+        <button class="btn btn-icon close-btn" data-close="modalClone">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>URL del repositorio (HTTPS/SSH)</label>
+          <input type="text" id="cloneUrl" placeholder="https://github.com/usuario/repo.git" />
+        </div>
+        <div class="form-row">
+          <label>Carpeta destino local</label>
+          <div class="input-group">
+            <input type="text" id="clonePath" placeholder="C:/Proyectos/mi-nuevo-repo" />
+            <button id="btnCloneBrowse" class="btn btn-secondary">📁</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalClone">Cancelar</button>
+        <button id="btnConfirmClone" class="btn btn-primary">Empezar a clonar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Tag Modal -->
+  <div id="modalTag" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>Nueva Etiqueta (Tag)</h2>
+        <button class="btn btn-icon close-btn" data-close="modalTag">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Nombre de la etiqueta</label>
+          <input type="text" id="newTagName" placeholder="v1.0.0" />
+        </div>
+        <div class="form-row">
+          <label>Mensaje (opcional - Crea etiqueta anotada)</label>
+          <textarea id="newTagMessage" rows="3" placeholder="Descripción de la versión…"></textarea>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalTag">Cancelar</button>
+        <button id="btnCreateTag" class="btn btn-primary">Crear Tag</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Branch Modal -->
+  <div id="modalDeleteBranch" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>Eliminar Rama</h2>
+        <button class="btn btn-icon close-btn" data-close="modalDeleteBranch">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>¿Estás seguro de que deseas eliminar la rama <strong id="deleteBranchNameLabel"></strong>?</p>
+        <div class="form-row mt-3">
+          <label class="check-label">
+            <input type="checkbox" id="forceDeleteBranch" />
+            Forzar eliminación (si la rama no ha sido fusionada)
+          </label>
+        </div>
+        <div class="alert-warn mt-2" id="deleteBranchWarn" style="display:none">
+          ⚠ Al forzar, podrías perder cambios no fusionados permanentemente.
+        </div>
+        <div class="form-row mt-3" id="deleteRemoteRow" style="display:none">
+          <label class="check-label">
+            <input type="checkbox" id="deleteRemoteBranch" />
+            También eliminar rama remota <code id="deleteRemoteLabel" style="font-size:11px;color:var(--yellow)"></code>
+          </label>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalDeleteBranch">Cancelar</button>
+        <button id="btnConfirmDeleteBranch" class="btn btn-danger">Eliminar Rama</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recovery Modal -->
+  <div id="modalRecover" class="modal-bg">
+    <div class="modal modal-recover">
+      <div class="modal-hdr">
+        <h2>🔄 Recuperar elementos eliminados</h2>
+        <button class="btn btn-icon close-btn" data-close="modalRecover">✕</button>
+      </div>
+      <div class="modal-body recover-body">
+
+        <div id="recoverScanning" class="spinner-wrap">
+          <div class="spinner"></div>
+          <span>Analizando repositorio…</span>
+        </div>
+
+        <div id="recoverResults" style="display:none">
+
+          <!-- Stashes perdidos -->
+          <div class="recover-section">
+            <div class="recover-section-hdr">
+              <span class="recover-section-icon">📦</span>
+              <span>Stashes eliminados</span>
+              <span id="recoverStashCount" class="badge badge-empty">0</span>
+            </div>
+            <div id="recoverStashList" class="recover-list"></div>
+          </div>
+
+          <!-- Ramas eliminadas -->
+          <div class="recover-section">
+            <div class="recover-section-hdr">
+              <span class="recover-section-icon">⎇</span>
+              <span>Ramas eliminadas (reflog)</span>
+              <span id="recoverBranchCount" class="badge badge-empty">0</span>
+            </div>
+            <div id="recoverBranchList" class="recover-list"></div>
+          </div>
+
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button id="btnRescan" class="btn btn-secondary">↻ Buscar de nuevo</button>
+        <button class="btn btn-secondary" data-close="modalRecover">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- File Context Menu -->
+  <div id="fileCtxMenu" class="ctx-menu" style="display:none"></div>
+
+  <!-- Commit Context Menu -->
+  <div id="commitCtxMenu" class="ctx-menu" style="display:none"></div>
+
+  <!-- Branch Context Menu -->
+  <div id="branchCtxMenu" class="branch-ctx-menu ctx-menu" style="display:none"></div>
+
+  <!-- Rename Branch Modal -->
+  <div id="modalRenameBranch" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>Renombrar Rama</h2>
+        <button class="btn btn-icon close-btn" data-close="modalRenameBranch">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Nombre actual</label>
+          <input type="text" id="renameBranchOld" readonly />
+        </div>
+        <div class="form-row">
+          <label>Nuevo nombre</label>
+          <input type="text" id="renameBranchNew" placeholder="feature/nuevo-nombre" />
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalRenameBranch">Cancelar</button>
+        <button id="btnConfirmRenameBranch" class="btn btn-primary">Renombrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rebase Modal -->
+  <div id="modalRebase" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>⎇ Rebase</h2>
+        <button class="btn btn-icon close-btn" data-close="modalRebase">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Rama a rebasear</label>
+          <input type="text" id="rebaseBranch" readonly />
+        </div>
+        <div class="form-row">
+          <label>Sobre (base)</label>
+          <select id="rebaseOnto" class="form-select"></select>
+        </div>
+        <div class="alert-warn">⚠ Rebase reescribe el historial. Evítalo en ramas compartidas con otros.</div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalRebase">Cancelar</button>
+        <button id="btnConfirmRebase" class="btn btn-primary">Rebase</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Compare branches modal -->
+  <div id="modalCompare" class="modal-bg">
+    <div class="modal modal-wide">
+      <div class="modal-hdr">
+        <h2>⎇ Comparar ramas</h2>
+        <button class="btn btn-icon close-btn" data-close="modalCompare">✕</button>
+      </div>
+      <div class="modal-body modal-body-flex compare-modal-body">
+        <div class="compare-selectors">
+          <select id="compareFrom" class="compare-select"></select>
+          <span class="compare-arrow">···</span>
+          <select id="compareTo" class="compare-select"></select>
+          <button class="btn btn-primary btn-xs" onclick="loadBranchCompare()">Comparar</button>
+        </div>
+        <div id="compareResult" class="compare-result">
+          <div class="compare-empty">Selecciona dos ramas y pulsa Comparar</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Historial del archivo -->
+  <div id="modalFileHistory" class="modal-bg">
+    <div id="modalFileHistoryBox" class="modal modal-wide" style="height:70vh">
+      <div class="modal-hdr">
+        <h2>📜 Historial — <span id="fileHistoryName" style="font-family:monospace;font-size:12px;color:var(--blue)"></span></h2>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="fhSearch" type="text" class="fh-search-input" placeholder="Buscar commit…" oninput="filterFileHistory(this.value)">
+          <button class="btn btn-icon" id="btnFhMaximize" onclick="toggleFhMaximize()" title="Maximizar">⛶</button>
+          <button class="btn btn-icon" data-close="modalFileHistory">✕</button>
+        </div>
+      </div>
+      <div class="fh-body">
+        <div id="fileHistoryList" class="fh-list"></div>
+        <div id="fileHistoryDiff" class="fh-diff diff-view"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Limpiar ramas mergeadas -->
+  <div id="modalMergedBranches" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>🗑 Ramas mergeadas en <code id="mergedBranchesBase" style="font-size:11px;color:var(--green)"></code></h2>
+        <button class="btn btn-icon" data-close="modalMergedBranches">✕</button>
+      </div>
+      <div class="modal-body" id="mergedBranchesList"></div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalMergedBranches">Cancelar</button>
+        <button class="btn btn-danger"    onclick="deleteSelectedMergedBranches()">Eliminar seleccionadas</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Añadir a .gitignore -->
+  <div id="modalAddGitignore" class="modal-bg">
+    <div class="modal modal-sm" style="width:460px">
+      <div class="modal-hdr">
+        <h2>➕ Añadir a .gitignore</h2>
+        <button class="btn btn-icon close-btn" data-close="modalAddGitignore">✕</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
+        <div class="gi-file-label">
+          <span style="color:var(--tx3);font-size:11px">Archivo:</span>
+          <code id="giFilePath" style="font-size:11px;color:var(--tx2);word-break:break-all"></code>
+        </div>
+        <div id="giOptions" style="display:flex;flex-direction:column;gap:4px"></div>
+        <!-- Custom pattern -->
+        <label class="gi-option gi-option-custom" onclick="selectGiCustom()">
+          <span class="gi-dot"></span>
+          <span class="gi-label">✏️ Patrón personalizado</span>
+        </label>
+        <div id="giCustomRow" style="display:none;padding-left:22px">
+          <input id="giCustomInput" type="text" class="form-control form-control-sm"
+            placeholder="ej: build/ o *.log o docs/**/*.pdf"
+            oninput="_updateGiCustomPreview()" onclick="selectGiCustom()" />
+        </div>
+        <!-- Preview -->
+        <div class="gi-preview-row">
+          <span style="color:var(--tx3);font-size:11px">Se añadirá:</span>
+          <code id="giPreview" class="gi-preview-code"></code>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalAddGitignore">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmAddToGitignore()">Añadir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editor .gitignore -->
+  <div id="modalGitignore" class="modal-bg">
+    <div class="modal modal-gitignore">
+      <div class="modal-hdr">
+        <h2>Editar .gitignore</h2>
+        <button class="btn btn-icon close-btn" data-close="modalGitignore">✕</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:8px">
+        <p style="font-size:12px;color:var(--tx3);margin:0">Edita el archivo <code>.gitignore</code>. Los cambios se guardan en disco pero no hacen commit automáticamente.</p>
+        <textarea id="gitignoreContent" class="gitignore-editor" spellcheck="false" placeholder="# Ejemplo:&#10;node_modules/&#10;dist/&#10;.env&#10;*.log"></textarea>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalGitignore">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveGitignore()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/init.js"></script>
+</body>
+</html>

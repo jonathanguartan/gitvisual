@@ -1,0 +1,135 @@
+/* ─── Toolbar ───────────────────────────────────────────────── */
+.toolbar {
+  height: var(--toolbar);
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 2px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.tb-sep {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+.tb-spacer { flex: 1; }
+
+.tb-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--r);
+  color: var(--tx2);
+  cursor: pointer;
+  min-width: 52px;
+  height: 46px;
+  transition: background .12s, color .12s;
+  position: relative;
+}
+.tb-btn:hover { background: var(--bg3); color: var(--tx0); }
+.tb-btn:active { background: var(--bg4); }
+
+.tb-icon {
+  font-size: 17px;
+  line-height: 1;
+}
+.tb-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.tb-btn.tb-push  .tb-icon { color: var(--green); }
+.tb-btn.tb-push:hover      { color: var(--tx0); }
+.tb-btn.tb-danger .tb-icon { color: var(--peach); }
+.tb-btn.tb-prod .tb-icon   { }
+.tb-btn.tb-pr .tb-icon     { color: var(--teal); }
+.tb-btn.tb-right           { min-width: 44px; }
+
+.tb-badge {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  background: var(--blue);
+  color: #1e1e2e;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+
+/* ─── Sidebar Nav ────────────────────────────────────────────── */
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 6px 4px;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.side-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  background: transparent;
+  border: none;
+  border-radius: var(--r);
+  color: var(--tx3);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background .12s, color .12s;
+}
+.side-nav-btn:hover { background: rgba(255,255,255,.05); color: var(--tx1); }
+.side-nav-btn.active {
+  background: rgba(137,180,250,.12);
+  color: var(--blue);
+}
+.side-nav-btn span { font-size: 13px; width: 16px; text-align: center; }
+
+/* ─── Resizers ───────────────────────────────────────────────── */
+.resizer {
+  flex-shrink: 0;
+  background: var(--border);
+  transition: background .15s;
+  position: relative;
+  z-index: 10;
+}
+.resizer:hover, .resizer.dragging { background: var(--blue); }
+
+.resizer-col {
+  width: 3px;
+  cursor: col-resize;
+  height: 100%;
+}
+
+.resizer-row {
+  height: 3px;
+  cursor: row-resize;
+  width: 100%;
+}
+
+.tab-nav { display: none; }

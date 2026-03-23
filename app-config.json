@@ -1,0 +1,42 @@
+{
+  "openTabs": [
+    {
+      "repoPath": "C:/Apache24/htdocs/JennyWeb",
+      "active": false
+    },
+    {
+      "repoPath": "C:/Proyectos/gitvisual",
+      "active": true
+    }
+  ],
+  "recentRepos": [
+    "C:/Proyectos/gitvisual",
+    "C:/Apache24/htdocs/JennyWeb",
+    "C:/Proyecto/Movil_PalMap",
+    "C:/Proyecto/PalMap",
+    "C:/Proyecto/app_palma"
+  ],
+  "autoFetchMinutes": 5,
+  "rebaseOnPull": false,
+  "autoStash": false,
+  "diffContext": 5,
+  "logLimit": 100,
+  "mainBranch": "main",
+  "platforms": {
+    "github": {
+      "token": "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"
+    },
+    "bitbucket": {
+      "user": "jguartan@palmar.com.ec",
+      "token": "",
+      "password": "ATATT3xFfGF07M8vG0tl78P1bJoCdBf5_yWKnprDlzlysqrVpdhRxRzivmhWVc96zITRK6RUDinyNo4Ok6vJ_42RVlZ1tiOePYO050ibprgRbWGdBK-aGvFpKQIVCEbVacWH7We5cVjSi1sq-zNEGOISgyNCUVJCGAKsvytWLjuxuaZ70vkdAYo=45C955AE"
+    },
+    "gitlab": {
+      "token": ""
+    },
+    "gitea": {
+      "url": "",
+      "token": ""
+    }
+  }
+}

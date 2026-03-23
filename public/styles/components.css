@@ -1,0 +1,549 @@
+/* ─── Recovery Modal ─────────────────────────────────────────── */
+.modal-recover {
+  width: 580px;
+}
+
+.recover-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.recover-section {
+  padding: 14px 18px;
+}
+.recover-section + .recover-section {
+  border-top: 1px solid var(--border);
+}
+
+.recover-section-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tx2);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.recover-section-icon { font-size: 14px; }
+
+.recover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recover-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  transition: border-color .15s;
+}
+.recover-item:hover { border-color: var(--bg4); }
+
+.recover-item-info {
+  flex: 1;
+  min-width: 0;
+}
+.recover-item-msg {
+  font-size: 12px;
+  color: var(--tx0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.recover-item-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--tx3);
+  font-family: 'Consolas', monospace;
+}
+.recover-item-hash { color: var(--yellow); }
+
+.recover-item-actions {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.recover-empty {
+  font-size: 12px;
+  color: var(--tx3);
+  padding: 8px 4px;
+  font-style: italic;
+}
+
+/* ─── Branch Filter ─────────────────────────────────────────────────────────── */
+.branch-filter-wrap {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.branch-filter {
+  width: 100%;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--tx0);
+  font-size: 11px;
+  padding: 3px 7px;
+  outline: none;
+}
+.branch-filter:focus { border-color: var(--blue); box-shadow: var(--glow-blue); }
+
+/* ─── Ahead/Behind track badges ─────────────────────────────────────────────── */
+.bi-track {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.bi-ahead  { color: var(--green);  font-size: 10px; font-weight: 600; }
+.bi-behind { color: var(--yellow); font-size: 10px; font-weight: 600; }
+.bi-no-remote { color: var(--tx3); font-size: 10px; margin-left: auto; }
+
+/* ─── Context Menus (archivos, commits, ramas) ───────────────────────────────── */
+.ctx-menu,
+.branch-ctx-menu {
+  position: fixed;
+  z-index: 9000;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-md);
+  min-width: 170px;
+  padding: 4px 0;
+  user-select: none;
+}
+.ctx-item {
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--tx0);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ctx-item:hover  { background: var(--bg3); }
+.ctx-danger      { color: var(--red); }
+.ctx-danger:hover{ background: rgba(243,139,168,.12); }
+.ctx-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 3px 0;
+}
+
+/* ─── branch-item layout fix for track badges ───────────────────────────────── */
+.branch-item { display: flex; align-items: center; }
+.bi-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ─── File Icons ─────────────────────────────────────────────────────────────── */
+.file-icon { font-size: 11px; margin-right: 4px; flex-shrink: 0; }
+
+/* ─── File Selection ─────────────────────────────────────────────────────────── */
+.file-item.selected {
+  background: rgba(137,180,250,.18) !important;
+  outline: 1px solid rgba(137,180,250,.5);
+  outline-offset: -1px;
+  color: var(--tx0);
+}
+.file-item.selected:hover {
+  background: rgba(137,180,250,.28) !important;
+}
+/* Archivo activo (diff visible) — clic simple sin multiselección */
+.file-item.active-diff {
+  background: rgba(137,180,250,.13) !important;
+  border-left: 2px solid var(--blue);
+  padding-left: 8px;
+  color: var(--tx0);
+}
+.file-item.active-diff:hover {
+  background: rgba(137,180,250,.22) !important;
+}
+.file-item[draggable="true"] { cursor: grab; }
+.file-item[draggable="true"]:active { cursor: grabbing; }
+
+.sel-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: rgba(137,180,250,.1);
+  border-bottom: 1px solid rgba(137,180,250,.2);
+  font-size: 11px;
+}
+.sel-count { color: var(--blue); flex: 1; }
+
+/* ─── Drag & Drop ────────────────────────────────────────────────────────────── */
+.file-list.drop-active {
+  outline: 2px dashed var(--blue);
+  outline-offset: -2px;
+  background: rgba(137,180,250,.06);
+}
+
+/* ─── Diff — Syntax Highlighting ─────────────────────────────────────────────── */
+.dl { display: flex; min-height: 18px; }
+.dl-sign {
+  flex: 0 0 14px;
+  text-align: center;
+  font-weight: 700;
+  user-select: none;
+  opacity: .8;
+}
+.dl-code {
+  flex: 1;
+  white-space: pre;
+  overflow-x: visible;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+.dl.add  { background: rgba(166,227,161,.10); }
+.dl.add  .dl-sign { color: var(--green); }
+.dl.del  { background: rgba(243,139,168,.10); }
+.dl.del  .dl-sign { color: var(--red); }
+
+/* Override highlight.js background to transparent */
+.dl-code .hljs,
+.dl-code code.hljs,
+.split-code .hljs,
+.split-code code.hljs { background: transparent !important; padding: 0 !important; }
+
+/* ─── Shared Context Menu extras ─────────────────────────────────────────────── */
+.ctx-primary { color: var(--blue); }
+.ctx-warn    { color: var(--yellow); }
+.ctx-warn:hover { background: rgba(249,226,175,.12); }
+
+/* ─── Commit templates ───────────────────────────────────────────────────────── */
+.commit-templates-bar {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.template-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 200;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-md);
+  min-width: 220px;
+  overflow: hidden;
+}
+
+.template-item {
+  padding: 7px 12px;
+  font-size: 12px;
+  color: var(--tx1);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.template-item:hover { background: var(--bg3); color: var(--tx0); }
+
+/* ─── Stash item activo en sidebar ───────────────────────────────────────────── */
+.stash-item.active-diff {
+  background: rgba(137,180,250,.12) !important;
+  border-left-color: var(--blue) !important;
+  color: var(--tx0);
+}
+.stash-item.active-diff .stash-actions { opacity: 1; }
+
+/* ─── Stash diff view (tab-stash) ────────────────────────────────────────────── */
+.stash-view-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg1);
+  flex-shrink: 0;
+}
+.stash-view-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tx1);
+  font-family: 'Consolas', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stash-view-grid {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+.stash-view-files {
+  width: 220px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ─── Compare branches modal ─────────────────────────────────────────────────── */
+/* ─── Compare branches modal ─────────────────────────────────────────────────── */
+.modal-wide {
+  width: min(92vw, 860px);
+  height: 80vh;
+}
+
+/* Allows modal-body to act as flex column so children can fill the height */
+.modal-body-flex {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px 16px;
+  gap: 10px;
+}
+
+.compare-modal-body {
+  /* inherits flex column from modal-body-flex */
+}
+
+.compare-selectors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.compare-select {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--tx0);
+  padding: 5px 8px;
+  font-size: 12px;
+  font-family: inherit;
+}
+.compare-select:focus { outline: none; border-color: var(--blue); }
+
+.compare-arrow { color: var(--tx3); font-size: 12px; flex-shrink: 0; }
+
+.compare-result {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.compare-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: var(--tx3);
+  font-size: 12px;
+}
+
+.compare-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tx2);
+  padding: 6px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.compare-commits {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  margin-bottom: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.compare-commit-row {
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--tx1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  font-family: 'Consolas', monospace;
+}
+.compare-commit-row:last-child { border-bottom: none; }
+.compare-commit-row:hover { background: var(--bg3); }
+
+.compare-diff-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  font-family: 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ─── Hunk staging ───────────────────────────────────────────────────────────── */
+.hunk-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 8px;
+  background: rgba(137,180,250,.07);
+  border-top: 1px solid rgba(137,180,250,.15);
+  border-bottom: 1px solid rgba(137,180,250,.1);
+  margin-top: 4px;
+}
+.hunk-header-text { flex: 1; font-weight: 600; color: var(--blue); padding: 2px 10px; white-space: pre; font-size: 11px; }
+.hunk-btn {
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid;
+  flex-shrink: 0;
+  transition: opacity .1s;
+}
+.hunk-btn:hover { opacity: .75; }
+.hunk-btn.stage   { background: rgba(166,227,161,.18); color: var(--green); border-color: rgba(166,227,161,.4); }
+.hunk-btn.unstage { background: rgba(243,139,168,.18); color: var(--red);   border-color: rgba(243,139,168,.4); }
+
+/* ─── Word diff ──────────────────────────────────────────────────────────────── */
+mark.wd-del { background: rgba(243,139,168,.35); color: var(--red);   border-radius: 2px; padding: 0 1px; }
+mark.wd-add { background: rgba(166,227,161,.35); color: var(--green); border-radius: 2px; padding: 0 1px; }
+
+/* ─── File History Modal ─────────────────────────────────────────────────────── */
+.modal-maximized {
+  width: 96vw !important;
+  height: 96vh !important;
+  max-width: 96vw !important;
+  max-height: 96vh !important;
+  border-radius: 6px;
+}
+
+.fh-search-input {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--tx0);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  width: 180px;
+}
+.fh-search-input:focus { outline: none; border-color: var(--blue); }
+.fh-search-input::placeholder { color: var(--tx3); }
+
+.fh-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.fh-list {
+  width: 280px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+}
+.fh-diff {
+  flex: 1;
+  overflow: auto;
+  font-family: 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.fh-row {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .1s;
+}
+.fh-row:hover { background: var(--bg3); }
+.fh-row.active { background: rgba(137,180,250,.1); border-left: 2px solid var(--blue); }
+.fh-row-meta { display: flex; gap: 6px; font-size: 10px; color: var(--tx3); margin-bottom: 2px; align-items: center; }
+.fh-row-hash { color: var(--yellow); font-family: monospace; }
+.fh-row-msg  { font-size: 11px; color: var(--tx1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fh-row.fh-sel-from { background: rgba(250,179,135,.12); border-left: 2px solid #fab387; }
+.fh-row.fh-sel-to   { background: rgba(137,180,250,.1);  border-left: 2px solid var(--blue); }
+
+.fh-diff-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--tx2);
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.fh-diff-header code { font-family: monospace; font-size: 10px; padding: 1px 4px; border-radius: 3px; }
+.fh-code-from { color: #fab387; background: rgba(250,179,135,.15); }
+.fh-code-to   { color: var(--blue); background: rgba(137,180,250,.15); }
+
+/* ─── Shortcuts overlay ──────────────────────────────────────────────────────── */
+.shortcuts-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(2px);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+}
+.shortcuts-card {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 28px;
+  box-shadow: var(--shadow-lg);
+  min-width: 320px;
+}
+.shortcuts-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tx0);
+  margin-bottom: 14px;
+  text-align: center;
+  letter-spacing: .02em;
+}
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 14px;
+  align-items: center;
+}
+kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  background: var(--bg3);
+  border: 1px solid var(--bg4);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: 'Consolas', monospace;
+  font-size: 11px;
+  color: var(--tx1);
+  white-space: nowrap;
+}
+.shortcuts-grid span { font-size: 12px; color: var(--tx2); }
+
+/* ─── Merged branches cleanup ────────────────────────────────────────────────── */
+.merged-branch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background .1s;
+}
+.merged-branch-row:hover { background: var(--bg3); }
+.merged-branch-name { font-family: 'Consolas', monospace; font-size: 12px; color: var(--tx1); }

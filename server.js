@@ -1,0 +1,64 @@
+const express = require('express');
+const path    = require('path');
+const fs      = require('fs');
+const { exec } = require('child_process');
+
+const app  = express();
+const PORT = process.env.PORT || 3333;
+
+// ─── Git PATH Setup ─────────────────────────────────────────────────────────────
+// Node.js puede no heredar el PATH completo del sistema. Si git no está disponible,
+// lo buscamos en las rutas comunes de Windows y lo añadimos al PATH del proceso.
+function ensureGitInPath() {
+  const gitDirs = [
+    'C:\\Program Files\\Git\\cmd',
+    'C:\\Program Files\\Git\\bin',
+    'C:\\Program Files (x86)\\Git\\cmd',
+    'C:\\Program Files (x86)\\Git\\bin',
+    (process.env.LOCALAPPDATA || '') + '\\Programs\\Git\\cmd',
+  ];
+  for (const dir of gitDirs) {
+    try {
+      if (fs.existsSync(dir) && !process.env.PATH.includes(dir)) {
+        process.env.PATH = dir + ';' + process.env.PATH;
+        console.log(`[git] Añadido al PATH: ${dir}`);
+        return;
+      }
+    } catch (_) {}
+  }
+}
+ensureGitInPath();
+
+app.use(require('cors')());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/vendor/hljs', express.static(path.join(__dirname, 'node_modules/highlight.js')));
+
+// ─── Routes ────────────────────────────────────────────────────────────────────
+
+app.use('/api/config', require('./routes/config'));
+app.use('/api/repo',   require('./routes/repo'));
+app.use('/api/repo',   require('./routes/branches'));
+app.use('/api/repo',   require('./routes/tags'));
+app.use('/api/repo',   require('./routes/stash'));
+app.use('/api/repo',   require('./routes/recover'));
+app.use('/api/pr',     require('./routes/pr'));
+app.use('/api/fs',     require('./routes/fs'));
+
+// ─── Start ─────────────────────────────────────────────────────────────────────
+
+const server = app.listen(PORT, () => {
+  const url = `http://localhost:${PORT}`;
+  console.log('\n┌─────────────────────────────────────────┐');
+  console.log(`│  Git Visual Manager — ${url}  │`);
+  console.log('└─────────────────────────────────────────┘\n');
+
+  // No abrir browser si corremos dentro de Electron (él abre su propia ventana)
+  if (!process.versions.electron) {
+    if (process.platform === 'win32')       exec(`cmd /c start ${url}`);
+    else if (process.platform === 'darwin') exec(`open ${url}`);
+    else                                    exec(`xdg-open ${url}`);
+  }
+});
+
+module.exports = server;

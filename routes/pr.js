@@ -1,0 +1,63 @@
+const router   = require('express').Router();
+const { loadConfig } = require('../lib/config');
+const registry = require('../lib/platforms');
+
+// ─── Auth check ───────────────────────────────────────────────────────────────
+
+router.get('/auth', (req, res) => {
+  const { type } = req.query;
+  const cfg      = loadConfig();
+
+  const platform = registry.get(type);
+  if (!platform) return res.json({ ok: false, message: `Plataforma desconocida: "${type}"` });
+
+  const platformCfg = cfg.platforms?.[type] || {};
+  if (!platform.hasAuth(platformCfg))
+    return res.json({ ok: false, message: platform.missingAuthMsg });
+
+  res.json({ ok: true });
+});
+
+// ─── List PRs ──────────────────────────────────────────────────────────────────
+
+router.get('/list', async (req, res) => {
+  const { owner, repo, type } = req.query;
+  const cfg = loadConfig();
+
+  const platform = registry.get(type);
+  if (!platform) return res.status(400).json({ error: `Plataforma desconocida: "${type}"` });
+
+  const platformCfg = cfg.platforms?.[type] || {};
+  if (!platform.hasAuth(platformCfg))
+    return res.status(400).json({ error: platform.missingAuthMsg });
+
+  try {
+    const prs = await platform.listPRs(platformCfg, { owner, repo });
+    res.json(prs);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Create PR ─────────────────────────────────────────────────────────────────
+
+router.post('/create', async (req, res) => {
+  const { owner, repo, title, body, head, base, type } = req.body;
+  const cfg = loadConfig();
+
+  const platform = registry.get(type);
+  if (!platform) return res.status(400).json({ error: `Plataforma desconocida: "${type}"` });
+
+  const platformCfg = cfg.platforms?.[type] || {};
+  if (!platform.hasAuth(platformCfg))
+    return res.status(400).json({ error: platform.missingAuthMsg });
+
+  try {
+    const pr = await platform.createPR(platformCfg, { owner, repo, title, body, head, base });
+    res.json({ success: true, pr });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+module.exports = router;
