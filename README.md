@@ -8,10 +8,13 @@ A visual Git repository manager that runs in the browser (or as a standalone Ele
 - **Stage / unstage / discard** — with multi-select (Ctrl+click, Shift+click) and drag & drop between panels
 - **Commit** with inline diff and syntax-highlighted code review
 - **Branch management** — create, rename, delete local/remote, rebase, checkout, ahead/behind tracking badges, pull non-checked-out branches (fast-forward)
-- **Branch tree view** — collapsible folders, filter/search input
-- **Commit log** — graph-style log with file-change detail and context menu (revert, create branch/tag at hash, copy hash)
+- **Branch tree view** — collapsible folders, filter/search input, expand/collapse all
+- **Commit log** — graph-style log with file-change detail and context menu (revert, reset soft/mixed/hard, create branch/tag at hash, copy hash)
+- **Conflict resolution** — conflicted files are visually highlighted with type indicator (UU/AA/DD…), inline "ours / theirs" buttons, and automatic staging after resolution
+- **Diff with line numbers** — unified and split diff views now show old/new line numbers
+- **Remote management** — add, rename, set-url, delete remotes from the Settings → Remotos tab
 - **Pull Requests** — create and list PRs/MRs for **GitHub**, **Gitea**, **Bitbucket**, and **GitLab**
-- **Context menus** — right-click on branches, files, and commits for quick actions
+- **Context menus** — right-click on branches, files, and commits for quick actions; icons auto-split for consistent layout
 - **Syntax highlighting** — powered by highlight.js (served locally, works offline / in Electron)
 - **Persistent layout** — panel sizes, collapsed sections, and open tabs survive page reloads via `localStorage`
 - **Electron wrapper** — splash screen, system tray, auto-generated icon (no external build deps)
@@ -146,10 +149,11 @@ All endpoints are prefixed `/api`.
 ### Tags
 | Method | Path | Body | Description |
 |--------|------|------|-------------|
-| GET | `/repo/tags` | `?path=` | List tags |
+| GET | `/repo/tags` | `?path=` | List tags with type (`annotated`/`lightweight`) |
 | POST | `/repo/tag/create` | `{ repoPath, name, message?, hash? }` | Create annotated/lightweight tag |
 | POST | `/repo/tag/delete` | `{ repoPath, name }` | Delete local tag |
 | POST | `/repo/tag/push` | `{ repoPath, name }` | Push tag to remote |
+| POST | `/repo/tag/delete-remote` | `{ repoPath, name }` | Delete tag from remote |
 
 ### Pull Requests
 | Method | Path | Body | Description |
@@ -163,6 +167,20 @@ All endpoints are prefixed `/api`.
 | GET | `/repo/commit/:hash/files` | `?path=` | Files changed in a commit |
 | GET | `/repo/commit/:hash/diff` | `?path=&file=` | Diff for a file in a commit |
 | POST | `/repo/commit/revert` | `{ repoPath, hash }` | Revert a commit |
+| POST | `/repo/reset` | `{ repoPath, hash, mode }` | Reset HEAD (`soft`/`mixed`/`hard`) |
+
+### Conflictos
+| Method | Path | Body | Description |
+|--------|------|------|-------------|
+| POST | `/repo/checkout-conflict` | `{ repoPath, file, side }` | Resolver conflicto aceptando `ours` o `theirs` |
+
+### Remotos
+| Method | Path | Body | Description |
+|--------|------|------|-------------|
+| POST | `/repo/remote/add` | `{ repoPath, name, url }` | Agregar remote |
+| POST | `/repo/remote/delete` | `{ repoPath, name }` | Eliminar remote |
+| POST | `/repo/remote/rename` | `{ repoPath, oldName, newName }` | Renombrar remote |
+| POST | `/repo/remote/set-url` | `{ repoPath, name, url }` | Cambiar URL de remote |
 
 ## Contributing
 

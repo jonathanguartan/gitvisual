@@ -304,8 +304,29 @@
   padding: 2px 5px;
   border-radius: 3px;
 }
-.tag-item:hover .tag-del { opacity: 1; }
-.tag-del:hover { background: rgba(243,139,168,.2); }
+.tag-item:hover .tag-del  { opacity: 1; }
+.tag-item:hover .tag-push { opacity: 1; }
+.tag-del:hover  { background: rgba(243,139,168,.2); }
+.tag-push {
+  opacity: 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.tag-push:hover { background: rgba(137,180,250,.2); }
+.tag-type {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 700;
+  flex-shrink: 0;
+  opacity: 0;
+}
+.tag-item:hover .tag-type { opacity: 1; }
+.tag-type-ann { background: rgba(203,166,247,.2); color: var(--mauve, #cba6f7); }
+.tag-type-lw  { background: rgba(166,173,200,.15); color: var(--tx3); }
 
 /* Log header/search styling */
 .log-header {

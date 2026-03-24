@@ -23,15 +23,19 @@ export function openTagModal() {
 export function renderTags(tags) {
   const el = document.getElementById('tagList');
   if (!el) return;
-  if (tags.length === 0) {
+  // Tags can be array of strings (legacy) or array of {name, type}
+  const normalized = tags.map(t => typeof t === 'string' ? { name: t, type: 'lightweight' } : t);
+  if (normalized.length === 0) {
     el.innerHTML = '<div class="empty-state-small">Sin etiquetas</div>';
     return;
   }
-  el.innerHTML = tags.map(t => `
+  el.innerHTML = normalized.map(t => `
     <div class="tag-item">
       <span class="tag-icon">◈</span>
-      <span class="tag-name" title="${escAttr(t)}">${escHtml(t)}</span>
-      <button class="tag-del" onclick="deleteTag('${escAttr(t)}')" title="Eliminar tag">✕</button>
+      <span class="tag-name" title="${escAttr(t.name)}">${escHtml(t.name)}</span>
+      <span class="tag-type ${t.type === 'annotated' ? 'tag-type-ann' : 'tag-type-lw'}" title="${t.type === 'annotated' ? 'Etiqueta anotada (con mensaje)' : 'Etiqueta ligera'}">${t.type === 'annotated' ? 'Ann' : 'LW'}</span>
+      <button class="tag-push" onclick="pushTag('${escAttr(t.name)}')" title="Publicar en remoto">↑</button>
+      <button class="tag-del" onclick="deleteTag('${escAttr(t.name)}')" title="Eliminar local">✕</button>
     </div>
   `).join('');
 }
@@ -53,12 +57,27 @@ export async function confirmCreateTag() {
 }
 
 export async function deleteTag(name) {
-  if (!confirm(`¿Eliminar el tag "${name}"?`)) return;
+  if (!confirm(`¿Eliminar el tag local "${name}"?`)) return;
   try {
     await opPost('/repo/tag/delete', { tagName: name }, 'Eliminando tag…');
     const data = await get('/repo/tags');
     renderTags(data.all || []);
     toast(`Tag "${name}" eliminado`, 'info');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+export async function pushTag(name) {
+  try {
+    await opPost('/repo/tag/push', { tagName: name }, `Publicando tag "${name}"…`);
+    toast(`Tag "${name}" publicado ✓`, 'success');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+export async function deleteRemoteTag(name) {
+  if (!confirm(`¿Eliminar el tag "${name}" del remoto?`)) return;
+  try {
+    await opPost('/repo/tag/delete-remote', { tagName: name }, `Eliminando tag remoto "${name}"…`);
+    toast(`Tag remoto "${name}" eliminado ✓`, 'info');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -68,3 +87,5 @@ window.openTagAtModal   = openTagAtModal;
 window.openTagModal     = openTagModal;
 window.confirmCreateTag = confirmCreateTag;
 window.deleteTag        = deleteTag;
+window.pushTag          = pushTag;
+window.deleteRemoteTag  = deleteRemoteTag;

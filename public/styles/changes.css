@@ -280,3 +280,48 @@
 .dl.del  { background: rgba(243,139,168,.09); color: var(--red); }
 .dl.hunk { color: var(--blue); font-weight: 600; }
 .dl.meta { color: var(--tx3); }
+
+/* ─── Diff line numbers ────────────────────────────────────────────────── */
+.dl-ln-old,
+.dl-ln-new {
+  display: inline-block;
+  width: 38px;
+  text-align: right;
+  padding-right: 8px;
+  font-size: 10px;
+  color: var(--tx3);
+  user-select: none;
+  flex-shrink: 0;
+  opacity: .65;
+  font-family: 'Consolas', monospace;
+}
+.dl.add .dl-ln-new { color: var(--green); opacity: .75; }
+.dl.del .dl-ln-old { color: var(--red);   opacity: .75; }
+
+/* ─── Conflicted files ─────────────────────────────────────────────────── */
+.file-item.file-conflict {
+  background: rgba(243,139,168,.07) !important;
+  border-left: 2px solid var(--red) !important;
+  padding-left: 8px;
+}
+.file-item.file-conflict .file-status { color: var(--red); font-weight: 900; }
+
+.conflict-type-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(243,139,168,.2);
+  color: var(--red);
+  font-weight: 700;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.file-act.conflict-side {
+  opacity: 0;
+  font-size: 9px;
+  padding: 2px 5px;
+}
+.file-item.file-conflict:hover .file-act.conflict-side { opacity: 1; }
+.file-act.conflict-side.ours:hover   { background: var(--blue);  color: #1e1e2e; }
+.file-act.conflict-side.theirs:hover { background: var(--green); color: #1e1e2e; }

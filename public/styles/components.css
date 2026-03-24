@@ -1,3 +1,33 @@
+/* ─── Remote Management (Settings tab) ───────────────────────── */
+.remote-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.remote-item:last-child { border-bottom: none; }
+.remote-item-info { flex: 1; min-width: 0; }
+.remote-item-name {
+  font-weight: 700;
+  color: var(--tx0);
+  margin-right: 8px;
+}
+.remote-item-url {
+  color: var(--tx3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Consolas', monospace;
+  font-size: 11px;
+}
+
+.form-row-inline {
+  display: flex;
+  gap: 8px;
+}
+
 /* ─── Conflict Banner ────────────────────────────────────────── */
 .conflict-banner {
   margin-top: 8px;
@@ -126,32 +156,84 @@
 .bi-no-remote { color: var(--tx3); font-size: 10px; margin-left: auto; }
 
 /* ─── Context Menus (archivos, commits, ramas) ───────────────────────────────── */
+@keyframes ctx-appear {
+  from { opacity: 0; transform: scale(.97) translateY(-3px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0); }
+}
+
 .ctx-menu,
 .branch-ctx-menu {
   position: fixed;
   z-index: 9000;
-  background: var(--bg1);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  box-shadow: var(--shadow-md);
-  min-width: 170px;
-  padding: 4px 0;
+  background: var(--bg2);
+  border: 1px solid var(--bg4);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.2);
+  min-width: 196px;
+  padding: 5px 0;
   user-select: none;
+  animation: ctx-appear .1s ease;
+  transform-origin: top left;
 }
+
+/* ─── Menu item base ── */
 .ctx-item {
-  padding: 6px 14px;
-  font-size: 12px;
-  color: var(--tx0);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  color: var(--tx1);
   cursor: pointer;
   white-space: nowrap;
+  transition: background .08s, color .08s;
+  border-radius: 4px;
+  margin: 0 4px;
 }
-.ctx-item:hover  { background: var(--bg3); }
-.ctx-danger      { color: var(--red); }
-.ctx-danger:hover{ background: rgba(243,139,168,.12); }
+.ctx-item:hover { background: var(--bg3); color: var(--tx0); }
+
+/* ─── Icon column (auto-injected by showCtxMenu) ── */
+.ctx-icon {
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+  font-size: 13px;
+  opacity: .75;
+}
+.ctx-label { flex: 1; }
+
+/* ─── Item variants ── */
+.ctx-primary         { color: var(--blue); }
+.ctx-primary:hover   { background: rgba(137,180,250,.12); color: var(--blue); }
+.ctx-primary .ctx-icon { opacity: 1; }
+
+.ctx-warn            { color: var(--yellow, #e5c890); }
+.ctx-warn:hover      { background: rgba(229,200,144,.10); color: var(--yellow, #e5c890); }
+
+.ctx-danger          { color: var(--red); }
+.ctx-danger:hover    { background: rgba(243,139,168,.10); color: var(--red); }
+.ctx-danger .ctx-icon { opacity: 1; }
+
+/* ─── Header / section label ── */
+.ctx-header {
+  padding: 4px 14px 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--tx3);
+  cursor: default;
+  pointer-events: none;
+  margin: 0;
+  border-radius: 0;
+}
+.ctx-header:hover { background: transparent; }
+
+/* ─── Separator ── */
 .ctx-sep {
   height: 1px;
-  background: var(--border);
-  margin: 3px 0;
+  background: var(--bg4);
+  margin: 4px 8px;
 }
 
 /* ─── branch-item layout fix for track badges ───────────────────────────────── */

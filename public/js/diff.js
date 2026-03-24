@@ -101,36 +101,43 @@ export function renderDiff(diff, filename = '') {
     catch { return escHtml(code); }
   };
 
+  const ln = (o, n) => `<span class="dl-ln-old">${o !== null ? o : ''}</span><span class="dl-ln-new">${n !== null ? n : ''}</span>`;
+
   const lines = diff.split('\n');
   let html = '';
-  let _delBuf = [];
+  let _delBuf = []; // { code, oldLn }
+  let oldLn = 0, newLn = 0;
 
   const flushDelBuf = () => {
-    for (const dl of _delBuf)
-      html += `<div class="dl del"><span class="dl-sign">-</span><span class="dl-code">${hl(dl)}</span></div>`;
+    for (const { code, oln } of _delBuf)
+      html += `<div class="dl del">${ln(oln, null)}<span class="dl-sign">-</span><span class="dl-code">${hl(code)}</span></div>`;
     _delBuf = [];
   };
 
   for (const l of lines) {
     if (l.startsWith('+') && !l.startsWith('+++')) {
+      newLn++;
       const addCode = l.slice(1);
       if (_delBuf.length > 0) {
-        const delCode = _delBuf.shift();
+        const { code: delCode, oln } = _delBuf.shift();
         const wd = _wordDiff(delCode, addCode);
         if (wd) {
-          html += `<div class="dl del"><span class="dl-sign">-</span><span class="dl-code">${wd.delHtml}</span></div>`;
-          html += `<div class="dl add"><span class="dl-sign">+</span><span class="dl-code">${wd.addHtml}</span></div>`;
+          html += `<div class="dl del">${ln(oln, null)}<span class="dl-sign">-</span><span class="dl-code">${wd.delHtml}</span></div>`;
+          html += `<div class="dl add">${ln(null, newLn)}<span class="dl-sign">+</span><span class="dl-code">${wd.addHtml}</span></div>`;
         } else {
-          html += `<div class="dl del"><span class="dl-sign">-</span><span class="dl-code">${hl(delCode)}</span></div>`;
-          html += `<div class="dl add"><span class="dl-sign">+</span><span class="dl-code">${hl(addCode)}</span></div>`;
+          html += `<div class="dl del">${ln(oln, null)}<span class="dl-sign">-</span><span class="dl-code">${hl(delCode)}</span></div>`;
+          html += `<div class="dl add">${ln(null, newLn)}<span class="dl-sign">+</span><span class="dl-code">${hl(addCode)}</span></div>`;
         }
       } else {
-        html += `<div class="dl add"><span class="dl-sign">+</span><span class="dl-code">${hl(addCode)}</span></div>`;
+        html += `<div class="dl add">${ln(null, newLn)}<span class="dl-sign">+</span><span class="dl-code">${hl(addCode)}</span></div>`;
       }
     } else if (l.startsWith('-') && !l.startsWith('---')) {
-      _delBuf.push(l.slice(1));
+      oldLn++;
+      _delBuf.push({ code: l.slice(1), oln: oldLn });
     } else if (l.startsWith('@@')) {
       flushDelBuf();
+      const m = l.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (m) { oldLn = parseInt(m[1]) - 1; newLn = parseInt(m[2]) - 1; }
       html += `<div class="dl hunk">${escHtml(l)}</div>`;
     } else if (/^(diff|index|\+\+\+|---)/.test(l)) {
       flushDelBuf();
@@ -138,7 +145,8 @@ export function renderDiff(diff, filename = '') {
     } else {
       flushDelBuf();
       const code = l.startsWith(' ') ? l.slice(1) : l;
-      html += `<div class="dl ctx"><span class="dl-sign"> </span><span class="dl-code">${hl(code)}</span></div>`;
+      oldLn++; newLn++;
+      html += `<div class="dl ctx">${ln(oldLn, newLn)}<span class="dl-sign"> </span><span class="dl-code">${hl(code)}</span></div>`;
     }
   }
   flushDelBuf();
@@ -258,6 +266,8 @@ export function renderDiffHunkStage(diff, filename = '', staged = false) {
     catch { return escHtml(code); }
   };
 
+  const ln = (o, n) => `<span class="dl-ln-old">${o !== null ? o : ''}</span><span class="dl-ln-new">${n !== null ? n : ''}</span>`;
+
   const { fileHeader, hunks } = parseDiffHunks(diff);
   const fileHeaderStr = fileHeader.join('\n');
 
@@ -280,34 +290,39 @@ export function renderDiffHunkStage(diff, filename = '', staged = false) {
       <button class="${btnClass}" onclick="${btnFn}">${btnLabel}</button>
     </div>`;
 
-    // Render hunk lines with word diff
+    // Render hunk lines with word diff + line numbers
     const hunkLines = hunk.lines;
-    let _delBuf = [];
+    let _delBuf = []; // { code, oln }
+    const m = hunk.header.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    let oldLn = m ? parseInt(m[1]) - 1 : 0;
+    let newLn = m ? parseInt(m[2]) - 1 : 0;
 
     const flushDelBuf = () => {
-      for (const dl of _delBuf)
-        html += `<div class="dl del"><span class="dl-sign">-</span><span class="dl-code">${hl(dl)}</span></div>`;
+      for (const { code, oln } of _delBuf)
+        html += `<div class="dl del">${ln(oln, null)}<span class="dl-sign">-</span><span class="dl-code">${hl(code)}</span></div>`;
       _delBuf = [];
     };
 
     for (const l of hunkLines) {
       if (l.startsWith('+') && !l.startsWith('+++')) {
+        newLn++;
         const addCode = l.slice(1);
         if (_delBuf.length > 0) {
-          const delCode = _delBuf.shift();
+          const { code: delCode, oln } = _delBuf.shift();
           const wd = _wordDiff(delCode, addCode);
           if (wd) {
-            html += `<div class="dl del"><span class="dl-sign">-</span><span class="dl-code">${wd.delHtml}</span></div>`;
-            html += `<div class="dl add"><span class="dl-sign">+</span><span class="dl-code">${wd.addHtml}</span></div>`;
+            html += `<div class="dl del">${ln(oln, null)}<span class="dl-sign">-</span><span class="dl-code">${wd.delHtml}</span></div>`;
+            html += `<div class="dl add">${ln(null, newLn)}<span class="dl-sign">+</span><span class="dl-code">${wd.addHtml}</span></div>`;
           } else {
-            html += `<div class="dl del"><span class="dl-sign">-</span><span class="dl-code">${hl(delCode)}</span></div>`;
-            html += `<div class="dl add"><span class="dl-sign">+</span><span class="dl-code">${hl(addCode)}</span></div>`;
+            html += `<div class="dl del">${ln(oln, null)}<span class="dl-sign">-</span><span class="dl-code">${hl(delCode)}</span></div>`;
+            html += `<div class="dl add">${ln(null, newLn)}<span class="dl-sign">+</span><span class="dl-code">${hl(addCode)}</span></div>`;
           }
         } else {
-          html += `<div class="dl add"><span class="dl-sign">+</span><span class="dl-code">${hl(addCode)}</span></div>`;
+          html += `<div class="dl add">${ln(null, newLn)}<span class="dl-sign">+</span><span class="dl-code">${hl(addCode)}</span></div>`;
         }
       } else if (l.startsWith('-') && !l.startsWith('---')) {
-        _delBuf.push(l.slice(1));
+        oldLn++;
+        _delBuf.push({ code: l.slice(1), oln: oldLn });
       } else if (l.startsWith('@@')) {
         flushDelBuf();
         html += `<div class="dl hunk">${escHtml(l)}</div>`;
@@ -317,7 +332,8 @@ export function renderDiffHunkStage(diff, filename = '', staged = false) {
       } else {
         flushDelBuf();
         const code = l.startsWith(' ') ? l.slice(1) : l;
-        html += `<div class="dl ctx"><span class="dl-sign"> </span><span class="dl-code">${hl(code)}</span></div>`;
+        oldLn++; newLn++;
+        html += `<div class="dl ctx">${ln(oldLn, newLn)}<span class="dl-sign"> </span><span class="dl-code">${hl(code)}</span></div>`;
       }
     }
     flushDelBuf();

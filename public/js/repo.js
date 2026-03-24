@@ -72,22 +72,36 @@ export async function loadRepo(repoPath) {
 }
 
 let _refreshing = false;
+let _refreshTabId = null;
+
 export async function refreshAll() {
-  if (_refreshing) return;
+  const tabId = activeTabId;
+  // Solo bloquear si ya está refrescando ESTE mismo tab; si es otro tab, proceder
+  if (_refreshing && _refreshTabId === tabId) return;
   _refreshing = true;
+  _refreshTabId = tabId;
   window._refreshing = true;
   try {
-    await Promise.all([refreshInfo(), refreshStatus(), refreshBranches(), refreshStash(), refreshTags()]);
-    window.renderTabBar();
+    await Promise.all([
+      refreshInfo(tabId),
+      refreshStatus(tabId),
+      refreshBranches(tabId),
+      refreshStash(tabId),
+      refreshTags(tabId),
+    ]);
+    if (activeTabId === tabId) window.renderTabBar();
   } finally {
-    _refreshing = false;
-    window._refreshing = false;
+    if (_refreshTabId === tabId) {
+      _refreshing = false;
+      window._refreshing = false;
+    }
   }
 }
 
-export async function refreshInfo() {
+export async function refreshInfo(tabId = activeTabId) {
   try {
     const info = await get('/repo/info');
+    if (activeTabId !== tabId) return;
     state.repoInfo    = info;
     state.currentBranch = info.currentBranch;
     state.githubInfo  = info.githubInfo;
@@ -97,39 +111,44 @@ export async function refreshInfo() {
   } catch (e) { console.warn('refreshInfo:', e.message); }
 }
 
-export async function refreshStatus() {
+export async function refreshStatus(tabId = activeTabId) {
   try {
     const status = await get('/repo/status');
+    if (activeTabId !== tabId) return;
     state.status = status;
     renderStatus(status);
   } catch (e) { console.warn('refreshStatus:', e.message); }
 }
 
-export async function refreshBranches() {
+export async function refreshBranches(tabId = activeTabId) {
   try {
     const [branches, tracking] = await Promise.all([
       get('/repo/branches'),
       get('/repo/branches/tracking').catch(() => ({})),
     ]);
+    if (activeTabId !== tabId) return;
     state.branches       = branches;
     state.branchTracking = tracking;
     renderBranches(branches);
   } catch (e) { console.warn('refreshBranches:', e.message); }
 }
 
-async function refreshTags() {
+async function refreshTags(tabId = activeTabId) {
   try {
     const data = await get('/repo/tags');
+    if (activeTabId !== tabId) return;
     renderTags(data.all || []);
   } catch (e) { console.warn('refreshTags:', e.message); }
 }
 
-async function refreshStash() {
+async function refreshStash(tabId = activeTabId) {
   try {
     const stashes = await get('/repo/stash/list');
+    if (activeTabId !== tabId) return;
     state.stashList = stashes;
     renderStashList(stashes);
   } catch (_) {
+    if (activeTabId !== tabId) return;
     state.stashList = [];
     renderStashList([]);
   }

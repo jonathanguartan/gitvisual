@@ -321,16 +321,51 @@ function buildFileTree(files) {
   return root;
 }
 
-function renderFileItem(f, listType, staged, displayName = null, indentPx = null) {
-  const isSel       = _selectedFiles[listType].has(f.path);
-  const isActive    = !isSel && _activeDiffPath === f.path && _activeDiffList === listType;
-  const isUntracked = listType === 'unstaged' && f.working_dir === '?';
-  const statusCode  = staged ? f.index : (isUntracked ? '?' : f.working_dir);
-  const name        = displayName ?? f.path;
-  const classes     = ['file-item', isSel ? 'selected' : isActive ? 'active-diff' : ''].filter(Boolean).join(' ');
-  const style       = indentPx !== null ? ` style="padding-left:${indentPx}px"` : '';
+// ─── Conflict helpers ─────────────────────────────────────────────────────────
 
-  return `<div class="${classes}"
+const _conflictTypeLabels = {
+  'UU': 'Ambos mod.', 'AA': 'Ambos añad.', 'DD': 'Ambos elim.',
+  'AU': 'Añad. nosotros', 'UA': 'Añad. ellos',
+  'DU': 'Elim. nosotros', 'UD': 'Elim. ellos',
+};
+
+function _conflictType(f) {
+  const i = (f.index || ' ').trim(), w = (f.working_dir || ' ').trim();
+  const key = `${i}${w}`;
+  return _conflictTypeLabels[key] || key;
+}
+
+export async function resolveConflictSide(file, side) {
+  try {
+    await post('/repo/checkout-conflict', { file, side });
+    await window.refreshStatus();
+    const label = side === 'ours' ? 'nuestros' : 'ellos';
+    toast(`Usando cambios de ${label} para "${file.split('/').pop()}" ✓`, 'success');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ─── renderFileItem ───────────────────────────────────────────────────────────
+
+function renderFileItem(f, listType, staged, displayName = null, indentPx = null) {
+  const isSel         = _selectedFiles[listType].has(f.path);
+  const isActive      = !isSel && _activeDiffPath === f.path && _activeDiffList === listType;
+  const isUntracked   = listType === 'unstaged' && f.working_dir === '?';
+  const statusCode    = staged ? f.index : (isUntracked ? '?' : f.working_dir);
+  const name          = displayName ?? f.path;
+  const conflicted    = state.status?.conflicted || [];
+  const isConflicted  = conflicted.includes(f.path);
+  const conflictLabel = isConflicted ? _conflictType(f) : null;
+
+  const baseClasses = ['file-item', isSel ? 'selected' : isActive ? 'active-diff' : '', isConflicted ? 'file-conflict' : ''].filter(Boolean).join(' ');
+  const style = indentPx !== null ? ` style="padding-left:${indentPx}px"` : '';
+
+  const conflictBadge = isConflicted
+    ? `<span class="conflict-type-badge" title="${conflictLabel}">${conflictLabel}</span>
+       <button class="file-act conflict-side ours" onclick="event.stopPropagation();resolveConflictSide('${escAttr(f.path)}','ours')" title="Usar nuestros cambios (--ours)">↑Nos</button>
+       <button class="file-act conflict-side theirs" onclick="event.stopPropagation();resolveConflictSide('${escAttr(f.path)}','theirs')" title="Usar sus cambios (--theirs)">↓Ellos</button>`
+    : '';
+
+  return `<div class="${baseClasses}"
                data-path="${escAttr(f.path)}" data-list="${listType}"
                draggable="true"${style}
                onclick="fileItemClick(event,'${escAttr(f.path)}','${listType}',${staged})"
@@ -341,7 +376,8 @@ function renderFileItem(f, listType, staged, displayName = null, indentPx = null
     <span class="file-icon">${fileIcon(f.path)}</span>
     <span class="file-status ${statusCode}">${statusCode}</span>
     <span class="file-name">${escHtml(name)}</span>
-    ${staged
+    ${conflictBadge}
+    ${isConflicted ? '' : staged
       ? `<button class="file-act" onclick="event.stopPropagation();unstageFile('${escAttr(f.path)}')" title="Quitar del stage">−</button>`
       : `<div class="file-acts">
            <button class="file-act delete" onclick="event.stopPropagation();removeFile('${escAttr(f.path)}',${isUntracked})" title="Eliminar">🗑</button>
@@ -379,12 +415,38 @@ function renderTreeNode(node, listType, staged, depth, pathPrefix) {
 }
 
 function _updateViewToggleBtn(listType) {
-  const btn = document.getElementById(listType === 'staged' ? 'btnStagedView' : 'btnUnstagedView');
+  const prefix = listType === 'staged' ? 'Staged' : 'Unstaged';
+  const btn = document.getElementById(`btn${prefix}View`);
   if (!btn) return;
   const isTree = _fileViewMode[listType] === 'tree';
   btn.textContent = isTree ? '☰' : '⊞';
   btn.title       = isTree ? 'Vista lista' : 'Vista árbol';
   btn.classList.toggle('btn-active', isTree);
+
+  // Show/hide expand-collapse tree buttons
+  const btnExpand   = document.getElementById(`btn${prefix}Expand`);
+  const btnCollapse = document.getElementById(`btn${prefix}Collapse`);
+  if (btnExpand)   btnExpand.style.display   = isTree ? '' : 'none';
+  if (btnCollapse) btnCollapse.style.display = isTree ? '' : 'none';
+}
+
+export function expandAllTree(listType) {
+  _collapsedFolders[listType].clear();
+  window.refreshStatus();
+}
+
+export function collapseAllTree(listType) {
+  const allFiles = state.status?.files || [];
+  const files = listType === 'staged'
+    ? allFiles.filter(f => f.index !== ' ' && f.index !== '?')
+    : allFiles.filter(f => f.working_dir !== ' ');
+  for (const f of files) {
+    const parts = f.path.split('/');
+    for (let i = 1; i < parts.length; i++) {
+      _collapsedFolders[listType].add(parts.slice(0, i).join('/'));
+    }
+  }
+  window.refreshStatus();
 }
 
 export function toggleFileView(listType) {
@@ -421,7 +483,7 @@ export function folderCtxShow(event, folderPath, listType) {
 
   const fileCount = _filesInFolder(folderPath, listType).length;
   const countLabel = fileCount > 0 ? ` (${fileCount})` : '';
-  let items = `<div class="ctx-item ctx-header" style="pointer-events:none;opacity:.6;font-size:10px">📁 ${escHtml(folderPath)}/</div>`;
+  let items = `<div class="ctx-item ctx-header">📁 ${escHtml(folderPath)}/</div>`;
   items += `<div class="ctx-sep"></div>`;
 
   if (listType === 'staged') {
@@ -918,3 +980,6 @@ window.selectGiOption          = selectGiOption;
 window.selectGiCustom          = selectGiCustom;
 window._updateGiCustomPreview  = _updateGiCustomPreview;
 window.confirmAddToGitignore   = confirmAddToGitignore;
+window.expandAllTree      = expandAllTree;
+window.collapseAllTree    = collapseAllTree;
+window.resolveConflictSide = resolveConflictSide;

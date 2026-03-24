@@ -34,6 +34,12 @@ export async function loadLog(branch) {
     const params = { limit: '100', search };
     if (_logBranch) params.branch = _logBranch;
     const data = await get('/repo/log', params);
+    // Si la rama ya no existe, el backend hizo fallback a --all; limpiar el filtro
+    if (_logBranch && data.branchNotFound) {
+      _logBranch = null;
+      if (indicator) indicator.style.display = 'none';
+      toast(`La rama "${params.branch}" ya no existe localmente`, 'warn');
+    }
     const commits = data.all || [];
 
     if (commits.length === 0) {
@@ -51,14 +57,16 @@ export async function loadLog(branch) {
       }).join(' ');
 
       return `
-        <div class="log-item" id="commit-${c.hash}"
-             onclick="showCommitDetail('${c.hash}','${escAttr(c.message)}','${escAttr(c.author_name)}','${escAttr(c.date)}')"
-             oncontextmenu="commitCtxShow(event,'${c.hash}','${escAttr(c.message)}')">
+        <div class="log-item" 
+             data-hash="${c.hash}" 
+             data-message="${escAttr(c.message)}" 
+             data-author="${escAttr(c.author_name)}" 
+             data-date="${escAttr(c.date)}">
           <div class="log-content">
             <div class="log-msg">${escHtml(c.message)}</div>
             <div class="log-meta">
               ${refsHtml}
-              <span class="log-hash" onclick="event.stopPropagation();copyToClipboard('${c.hash}')" title="Copiar hash">${c.hash.slice(0, 7)}</span>
+              <span class="log-hash" data-action="copy-hash" title="Copiar hash">${c.hash.slice(0, 7)}</span>
               <span><strong>${escHtml(c.author_name)}</strong></span>
               <span>${relTime(c.date)}</span>
             </div>
@@ -66,6 +74,22 @@ export async function loadLog(branch) {
         </div>
       `;
     }).join('');
+
+    // Delegación de eventos para el log
+    el.onclick = (e) => {
+      const item = e.target.closest('.log-item');
+      if (!item) return;
+      if (e.target.dataset.action === 'copy-hash') {
+        e.stopPropagation();
+        copyToClipboard(item.dataset.hash);
+        return;
+      }
+      showCommitDetail(item.dataset.hash, item.dataset.message, item.dataset.author, item.dataset.date);
+    };
+    el.oncontextmenu = (e) => {
+      const item = e.target.closest('.log-item');
+      if (item) commitCtxShow(e, item.dataset.hash, item.dataset.message);
+    };
 
     if (svg && commits.length > 0) {
       requestAnimationFrame(() => drawGraph(commits, svg));
@@ -117,11 +141,16 @@ async function showCommitDetail(hash, message, author, date) {
       return;
     }
     filesEl.innerHTML = files.map(f => `
-      <div class="log-detail-file" onclick="showCommitFileDiff('${escAttr(hash)}','${escAttr(f.path)}',this)">
+      <div class="log-detail-file" data-path="${escAttr(f.path)}">
         <span class="ldf-status ${f.status}">${f.status}</span>
         <span class="ldf-name" title="${escAttr(f.path)}">${escHtml(f.path)}</span>
       </div>
     `).join('');
+
+    filesEl.onclick = (e) => {
+      const row = e.target.closest('.log-detail-file');
+      if (row) showCommitFileDiff(hash, row.dataset.path, row);
+    };
   } catch (e) {
     filesEl.innerHTML = `<div class="empty-state-small">${escHtml(e.message)}</div>`;
   }
@@ -233,6 +262,7 @@ export function commitCtxShow(event, hash, message) {
   items += `<div class="ctx-item" onclick="commitCtxAction('branch-here')">⎇ Crear rama aquí</div>`;
   items += `<div class="ctx-item" onclick="commitCtxAction('tag-here')">◈ Crear tag aquí</div>`;
   items += `<div class="ctx-sep"></div>`;
+  items += `<div class="ctx-item ctx-warn" onclick="commitCtxAction('reset')">↺ Reset aquí…</div>`;
   items += `<div class="ctx-item ctx-danger" onclick="commitCtxAction('revert')">↩ Revertir commit</div>`;
 
   showCtxMenu('commitCtxMenu', event, items);
@@ -252,8 +282,32 @@ export function commitCtxAction(action) {
     case 'cherry-pick': window.openCherryPickModal(d.hash); break;
     case 'branch-here': window.openCreateBranchAtModal(d.hash); break;
     case 'tag-here':    window.openTagAtModal(d.hash); break;
+    case 'reset':       openResetModal(d.hash); break;
     case 'revert':      revertCommit(d.hash); break;
   }
+}
+
+// ─── Reset ────────────────────────────────────────────────────────────────────
+
+let _resetHash = null;
+
+export function openResetModal(hash) {
+  _resetHash = hash;
+  document.getElementById('resetTargetHash').textContent = hash.slice(0, 7);
+  document.getElementById('resetMode').value = 'mixed';
+  openModal('modalReset');
+}
+
+export async function confirmReset() {
+  const mode = document.getElementById('resetMode').value;
+  if (!_resetHash) return;
+  if (mode === 'hard' && !confirm(`¿Reset HARD a ${_resetHash.slice(0,7)}?\nSe perderán TODOS los cambios no commiteados. Esta acción no se puede deshacer.`)) return;
+  try {
+    await opPost('/repo/reset', { hash: _resetHash, mode }, `Reset ${mode} a ${_resetHash.slice(0,7)}…`);
+    await window.refreshAll();
+    closeModal('modalReset');
+    toast(`Reset ${mode} completado ✓`, 'success');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function revertCommit(hash) {
@@ -270,6 +324,8 @@ async function revertCommit(hash) {
 window.commitCtxShow   = commitCtxShow;
 window.commitCtxAction = commitCtxAction;
 window.commitCtxClose  = commitCtxClose;
+window.openResetModal  = openResetModal;
+window.confirmReset    = confirmReset;
 window.showCommitDetail     = showCommitDetail;
 window.showCommitFileDiff   = showCommitFileDiff;
 window.loadLog              = loadLog;

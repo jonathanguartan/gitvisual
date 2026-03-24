@@ -12,6 +12,9 @@ export function switchSettingsTab(tab) {
   });
   document.getElementById('settingsTabGeneral').classList.toggle('active', tab === 'general');
   document.getElementById('settingsTabCuenta').classList.toggle('active', tab === 'cuenta');
+  const remotosTab = document.getElementById('settingsTabRemotos');
+  if (remotosTab) remotosTab.classList.toggle('active', tab === 'remotos');
+  if (tab === 'remotos') loadRemotesTab();
 }
 
 // ─── Platform settings (dynamic) ─────────────────────────────────────────────
@@ -340,3 +343,93 @@ window.confirmCherryPick   = confirmCherryPick;
 window.openProdModal       = openProdModal;
 window.pushToProduction    = pushToProduction;
 window.recoverStashStore   = recoverStashStore;
+
+// ─── Remote Management ─────────────────────────────────────────────────────────
+
+export async function loadRemotesTab() {
+  if (!state.repoPath) {
+    const el = document.getElementById('remoteList');
+    if (el) el.innerHTML = '<div style="color:var(--tx3);font-size:12px">Abre un repositorio primero.</div>';
+    return;
+  }
+  const el = document.getElementById('remoteList');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--tx3);font-size:12px">Cargando…</div>';
+  try {
+    const data = await get('/repo/info');
+    _renderRemoteList(data.remotes || []);
+  } catch (e) { el.innerHTML = `<div style="color:var(--red);font-size:12px">${escHtml(e.message)}</div>`; }
+}
+
+function _renderRemoteList(remotes) {
+  const el = document.getElementById('remoteList');
+  if (!el) return;
+  if (remotes.length === 0) {
+    el.innerHTML = '<div style="color:var(--tx3);font-size:12px;padding:8px 0">Sin remotos configurados.</div>';
+    return;
+  }
+  el.innerHTML = remotes.map(r => {
+    const url = r.refs?.push || r.refs?.fetch || '';
+    return `<div class="remote-item">
+      <div class="remote-item-info">
+        <span class="remote-item-name">${escHtml(r.name)}</span>
+        <span class="remote-item-url" title="${escAttr(url)}">${escHtml(url)}</span>
+      </div>
+      <button class="btn btn-xs btn-secondary" onclick="renameRemotePrompt('${escAttr(r.name)}')" title="Renombrar">✎</button>
+      <button class="btn btn-xs" onclick="setRemoteUrlPrompt('${escAttr(r.name)}','${escAttr(url)}')" title="Cambiar URL">🔗</button>
+      <button class="btn btn-xs btn-danger" onclick="deleteRemote('${escAttr(r.name)}')" title="Eliminar">🗑</button>
+    </div>`;
+  }).join('');
+}
+
+export async function addRemoteFromForm() {
+  const name = document.getElementById('newRemoteName')?.value.trim();
+  const url  = document.getElementById('newRemoteUrl')?.value.trim();
+  if (!name) { toast('Introduce un nombre para el remoto', 'warn'); return; }
+  if (!url)  { toast('Introduce la URL del remoto', 'warn'); return; }
+  try {
+    await post('/repo/remote/add', { name, url });
+    document.getElementById('newRemoteName').value = '';
+    document.getElementById('newRemoteUrl').value  = '';
+    toast(`Remoto "${name}" añadido ✓`, 'success');
+    loadRemotesTab();
+    await window.refreshAll();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+export async function deleteRemote(name) {
+  if (!confirm(`¿Eliminar el remoto "${name}"? Esto no borra las ramas locales que lo rastrean.`)) return;
+  try {
+    await post('/repo/remote/delete', { name });
+    toast(`Remoto "${name}" eliminado ✓`, 'info');
+    loadRemotesTab();
+    await window.refreshAll();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+export async function renameRemotePrompt(oldName) {
+  const newName = prompt(`Nuevo nombre para "${oldName}":`, oldName);
+  if (!newName || newName === oldName) return;
+  try {
+    await post('/repo/remote/rename', { oldName, newName });
+    toast(`Remoto renombrado a "${newName}" ✓`, 'success');
+    loadRemotesTab();
+    await window.refreshAll();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+export async function setRemoteUrlPrompt(name, currentUrl) {
+  const newUrl = prompt(`URL del remoto "${name}":`, currentUrl);
+  if (!newUrl || newUrl === currentUrl) return;
+  try {
+    await post('/repo/remote/set-url', { name, url: newUrl });
+    toast(`URL de "${name}" actualizada ✓`, 'success');
+    loadRemotesTab();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+window.loadRemotesTab      = loadRemotesTab;
+window.addRemoteFromForm   = addRemoteFromForm;
+window.deleteRemote        = deleteRemote;
+window.renameRemotePrompt  = renameRemotePrompt;
+window.setRemoteUrlPrompt  = setRemoteUrlPrompt;

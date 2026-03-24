@@ -14,7 +14,7 @@
   <header class="header">
     <div class="header-brand">
       <span class="logo">⟁</span>
-      <span class="logo-text">GitFlow</span>
+      <span class="logo-text">Proyecto</span>
     </div>
     <div class="header-repo">
       <input type="text" id="repoPath" class="repo-input" placeholder="Ruta del repositorio…" />
@@ -224,6 +224,8 @@
               <div class="files-hdr">
                 <span>Staged <span id="stagedCount" class="badge">0</span></span>
                 <div class="hdr-actions">
+                  <button id="btnStagedExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('staged')"   title="Expandir todo">⊕</button>
+                  <button id="btnStagedCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('staged')" title="Colapsar todo">⊖</button>
                   <button id="btnStagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('staged')" title="Vista árbol">⊞</button>
                   <button id="btnUnstageAll" class="btn btn-xs">Quitar todo</button>
                 </div>
@@ -244,6 +246,8 @@
               <div class="files-hdr">
                 <span>Pendientes <span id="unstagedCount" class="badge badge-warn">0</span></span>
                 <div class="hdr-actions">
+                  <button id="btnUnstagedExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('unstaged')"   title="Expandir todo">⊕</button>
+                  <button id="btnUnstagedCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('unstaged')" title="Colapsar todo">⊖</button>
                   <button id="btnUnstagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('unstaged')" title="Vista árbol">⊞</button>
                   <button id="btnDiscardAll" class="btn btn-xs btn-secondary">Descartar todo</button>
                   <button id="btnStageAll" class="btn btn-xs btn-primary">Stage todo</button>
@@ -362,6 +366,7 @@
       <div class="settings-tabs">
         <button class="settings-tab-btn active" onclick="switchSettingsTab('general')">General</button>
         <button class="settings-tab-btn"        onclick="switchSettingsTab('cuenta')">Cuenta</button>
+        <button class="settings-tab-btn"        onclick="switchSettingsTab('remotos')">Remotos</button>
       </div>
       <div class="modal-body">
 
@@ -455,6 +460,27 @@
           <div id="platformSettingsContainer">
             <div style="color:var(--tx3);font-size:12px;padding:8px 0">Cargando plataformas…</div>
           </div>
+        </div>
+
+        <!-- ── Tab: Remotos ── -->
+        <div id="settingsTabRemotos" class="settings-tab-pane">
+          <fieldset class="form-group-set">
+            <legend>Remotos del repositorio actual</legend>
+            <div id="remoteList" style="margin-bottom:12px">
+              <div style="color:var(--tx3);font-size:12px">Abre un repositorio primero.</div>
+            </div>
+            <div class="form-row-inline" style="gap:6px;align-items:flex-end">
+              <div class="form-row" style="flex:0 0 100px;margin-bottom:0">
+                <label>Nombre</label>
+                <input type="text" id="newRemoteName" placeholder="origin" />
+              </div>
+              <div class="form-row" style="flex:1;margin-bottom:0">
+                <label>URL</label>
+                <input type="text" id="newRemoteUrl" placeholder="https://github.com/usuario/repo.git" />
+              </div>
+              <button class="btn btn-primary btn-xs" onclick="addRemoteFromForm()" style="align-self:flex-end;margin-bottom:0">+ Añadir</button>
+            </div>
+          </fieldset>
         </div>
 
       </div>
@@ -665,6 +691,35 @@
       <div class="modal-ftr">
         <button class="btn btn-secondary" data-close="modalCherryPick">Cancelar</button>
         <button id="btnConfirmCherryPick" class="btn btn-primary">🍒 Aplicar Cherry-Pick</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Modal -->
+  <div id="modalReset" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>↺ Reset al commit <code id="resetTargetHash"></code></h2>
+        <button class="btn btn-icon close-btn" data-close="modalReset">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Modo de reset</label>
+          <select id="resetMode">
+            <option value="soft">Soft — mantiene cambios en stage</option>
+            <option value="mixed" selected>Mixed — mantiene cambios sin stage</option>
+            <option value="hard">Hard — descarta todos los cambios locales</option>
+          </select>
+        </div>
+        <div id="resetModeInfo" class="alert-warn" style="margin-top:8px;font-size:12px">
+          <strong>Soft:</strong> Los commits siguientes se deshacen pero sus cambios quedan preparados (staged).<br>
+          <strong>Mixed:</strong> Los commits siguientes se deshacen y los cambios quedan sin preparar.<br>
+          <strong>Hard:</strong> ⚠ Los commits siguientes y todos los cambios locales se pierden permanentemente.
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalReset">Cancelar</button>
+        <button class="btn btn-danger" onclick="confirmReset()">↺ Confirmar Reset</button>
       </div>
     </div>
   </div>

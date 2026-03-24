@@ -58,7 +58,17 @@ export function copyToClipboard(text) {
 export function showCtxMenu(id, event, items) {
   closeAllCtxMenus();
   const menu = document.getElementById(id);
-  menu.innerHTML  = items;
+  menu.innerHTML = items;
+
+  // Auto-split "icon text" → <span.ctx-icon> + <span.ctx-label> for cleaner layout
+  menu.querySelectorAll('.ctx-item:not(.ctx-header)').forEach(el => {
+    if (el.children.length > 0) return; // already structured
+    const text = el.textContent;
+    const m = text.match(/^(\S{1,4})\s(.+)/s);
+    if (m) el.innerHTML = `<span class="ctx-icon" aria-hidden="true">${escHtml(m[1])}</span><span class="ctx-label">${escHtml(m[2])}</span>`;
+  });
+
+  // Position
   menu.style.left = event.clientX + 'px';
   menu.style.top  = event.clientY + 'px';
   menu.style.display = 'block';
