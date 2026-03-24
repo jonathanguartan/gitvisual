@@ -1,3 +1,18 @@
+/* ─── Conflict Banner ────────────────────────────────────────── */
+.conflict-banner {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--red) 15%, var(--bg2));
+  border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.conflict-title   { font-weight: 600; color: var(--red); margin-bottom: 4px; }
+.conflict-count   { color: var(--tx2); margin-bottom: 4px; }
+.conflict-files   { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; max-height: 80px; overflow-y: auto; }
+.conflict-files span { font-family: monospace; font-size: 11px; color: var(--yellow); }
+.conflict-actions { display: flex; gap: 6px; margin-top: 6px; }
+
 /* ─── Recovery Modal ─────────────────────────────────────────── */
 .modal-recover {
   width: 580px;

@@ -75,14 +75,23 @@ router.get('/info', async (req, res) => {
   const configApp = loadConfig();
   try {
     const g = git(repoPath);
-    const [branch, remotes, config, status, log, originHead] = await Promise.all([
+    const [branch, remotes, config, status, log] = await Promise.all([
       g.branchLocal(),
       g.getRemotes(true),
       g.listConfig(),
       g.status(),
       g.log().catch(() => ({ total: 0 })),
-      g.raw(['symbolic-ref', 'refs/remotes/origin/HEAD']).catch(() => ''),
     ]);
+
+    // Detect default branch from various possible remotes
+    let originHead = '';
+    const remoteNames = remotes.length > 0 ? remotes.map(r => r.name) : ['origin'];
+    for (const rName of remoteNames) {
+      try {
+        originHead = await g.raw(['symbolic-ref', `refs/remotes/${rName}/HEAD`]);
+        if (originHead.trim()) break;
+      } catch (_) {}
+    }
 
     let gitPlatformInfo = null;
     if (remotes.length > 0) {
@@ -93,6 +102,28 @@ router.get('/info', async (req, res) => {
 
     // Extract branch name from "refs/remotes/origin/main" → "main"
     const detectedMain = originHead.trim().replace(/^refs\/remotes\/[^/]+\//, '') || null;
+
+    // Detectar estado especial del repo (MERGING, REBASING, etc.)
+    // Si .git es un archivo (worktree/submódulo), resolvemos la ruta real del gitdir
+    let gitDir = path.join(path.normalize(repoPath), '.git');
+    try {
+      const gitDirStat = fs.statSync(gitDir);
+      if (gitDirStat.isFile()) {
+        // Worktree: el archivo contiene "gitdir: /ruta/real"
+        const content = fs.readFileSync(gitDir, 'utf8').trim();
+        const match   = content.match(/^gitdir:\s*(.+)$/m);
+        if (match) gitDir = path.resolve(repoPath, match[1].trim());
+      }
+    } catch (_) {}
+    let repoState  = null;
+    if (fs.existsSync(path.join(gitDir, 'MERGE_HEAD')))            repoState = 'MERGING';
+    else if (fs.existsSync(path.join(gitDir, 'rebase-merge')))     repoState = 'REBASING';
+    else if (fs.existsSync(path.join(gitDir, 'rebase-apply')))     repoState = 'REBASING';
+    else if (fs.existsSync(path.join(gitDir, 'CHERRY_PICK_HEAD'))) repoState = 'CHERRY-PICKING';
+    else if (fs.existsSync(path.join(gitDir, 'REVERT_HEAD')))      repoState = 'REVERTING';
+
+    // Archivos en conflicto
+    const conflictedFiles = status.conflicted || [];
 
     res.json({
       currentBranch: branch.current,
@@ -106,6 +137,8 @@ router.get('/info', async (req, res) => {
       tracking:    status.tracking,
       totalCommits: log.total || 0,
       defaultBranch: detectedMain,
+      repoState,
+      conflictedFiles,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

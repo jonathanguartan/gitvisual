@@ -66,19 +66,29 @@ let _autoFetchTimer = null;
 export function startAutoFetch(minutes = 5) {
   stopAutoFetch();
   if (!minutes || minutes <= 0) return;
-  _autoFetchTimer = setInterval(async () => {
+
+  const tick = async () => {
     if (!state.repoPath) return;
     // Si hay un refresh en curso, saltar este ciclo para no bloquear git
-    if (window._refreshing) return;
+    if (window._refreshing) {
+      _autoFetchTimer = setTimeout(tick, 10000); // Reintentar en 10s si está ocupado
+      return;
+    }
+
     try {
       await post('/repo/fetch', {});
       await window.refreshBranches();
     } catch (_) {}
-  }, minutes * 60 * 1000);
+
+    // Programar el siguiente ciclo solo después de que este haya terminado
+    _autoFetchTimer = setTimeout(tick, minutes * 60 * 1000);
+  };
+
+  _autoFetchTimer = setTimeout(tick, minutes * 60 * 1000);
 }
 
 export function stopAutoFetch() {
-  if (_autoFetchTimer) { clearInterval(_autoFetchTimer); _autoFetchTimer = null; }
+  if (_autoFetchTimer) { clearTimeout(_autoFetchTimer); _autoFetchTimer = null; }
 }
 
 export async function refreshBranchesList() {

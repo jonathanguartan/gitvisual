@@ -220,7 +220,31 @@ export function renderRepoInfo(info) {
       ? `<div class="ri-row"><span>Principal</span><span class="val" style="color:var(--blue);font-size:11px">⎇ ${escHtml(info.defaultBranch)}</span></div>`
       : ''}
     ${syncRows.length ? `<div class="sync-row">${syncRows.join('')}</div>` : ''}
+    ${info.repoState ? _renderConflictBanner(info.repoState, info.conflictedFiles || []) : ''}
   `;
+}
+
+function _renderConflictBanner(repoState, conflictedFiles) {
+  const labels = {
+    'MERGING':        'Merge en progreso',
+    'REBASING':       'Rebase en progreso',
+    'CHERRY-PICKING': 'Cherry-pick en progreso',
+    'REVERTING':      'Revert en progreso',
+  };
+  const label = labels[repoState] || repoState;
+  const fileList = conflictedFiles.length
+    ? `<div class="conflict-files">${conflictedFiles.map(f => `<span>⚠ ${escHtml(f)}</span>`).join('')}</div>`
+    : '';
+  return `
+    <div class="conflict-banner">
+      <div class="conflict-title">⚠ ${label}</div>
+      ${conflictedFiles.length ? `<div class="conflict-count">${conflictedFiles.length} archivo(s) en conflicto</div>` : ''}
+      ${fileList}
+      <div class="conflict-actions">
+        <button class="btn btn-xs btn-danger"    onclick="window.conflictAbort('${repoState}')">✕ Abortar</button>
+        <button class="btn btn-xs btn-primary"   onclick="window.conflictContinue('${repoState}')">✓ Continuar</button>
+      </div>
+    </div>`;
 }
 
 // ─── Branch Operations ────────────────────────────────────────────────────────
@@ -369,6 +393,33 @@ export async function confirmPullFrom() {
   await mergeFromRemote(remoteBranch, strategy);
 }
 
+export async function conflictAbort(repoState) {
+  try {
+    await opPost('/repo/conflict/abort', { state: repoState }, `Abortando ${repoState.toLowerCase()}…`);
+    await window.refreshAll();
+    toast('Operación abortada. El repositorio volvió a su estado anterior.', 'info');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+export async function conflictContinue(repoState) {
+  let message = '';
+  if (repoState === 'MERGING') {
+    // Para merge se necesita un commit con los conflictos ya resueltos
+    const pending = state.status?.conflicted || [];
+    if (pending.length > 0) {
+      toast(`Hay ${pending.length} archivo(s) todavía en conflicto. Resuélvelos primero.`, 'warn');
+      return;
+    }
+    message = prompt('Mensaje para el commit de merge:', `Merge (resolviendo conflictos)`);
+    if (!message) return;
+  }
+  try {
+    await opPost('/repo/conflict/continue', { state: repoState, message }, `Continuando ${repoState.toLowerCase()}…`);
+    await window.refreshAll();
+    toast('Operación completada ✓', 'success');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
 export async function mergeFromRemote(fullRemoteName, strategy = 'merge') {
   const normalized = fullRemoteName.replace(/^remotes\//, ''); // "origin/main"
   const action     = strategy === 'rebase' ? 'Rebaseando' : 'Mergeando';
@@ -378,7 +429,11 @@ export async function mergeFromRemote(fullRemoteName, strategy = 'merge') {
     await opPost('/repo/branch/merge-from-remote', { remoteBranch: normalized, strategy }, label);
     await window.refreshAll();
     toast(`"${state.currentBranch}" actualizada desde ${normalized} ✓`, 'success');
-  } catch (e) { toast(e.message, 'error'); }
+  } catch (e) {
+    // Refrescar siempre para mostrar el banner de conflicto si quedó en ese estado
+    await window.refreshAll();
+    toast(e.message, 'error');
+  }
 }
 
 export async function checkoutNewBranchFromRemote(remoteDisplayName, fullRemoteName) {
@@ -715,6 +770,8 @@ window.checkoutNewBranchFromRemote = checkoutNewBranchFromRemote;
 window.mergeFromRemote             = mergeFromRemote;
 window.openPullFromModal           = openPullFromModal;
 window.confirmPullFrom             = confirmPullFrom;
+window.conflictAbort               = conflictAbort;
+window.conflictContinue            = conflictContinue;
 window.pullBranchFF             = pullBranchFF;
 window.openCreateBranchAtModal  = openCreateBranchAtModal;
 window.openSetUpstreamModal     = openSetUpstreamModal;

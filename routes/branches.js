@@ -197,7 +197,7 @@ router.post('/branch/create-at', async (req, res) => {
 });
 
 // Fetch del remote + merge o rebase desde una rama remota hacia la rama activa
-router.post('/merge-from-remote', async (req, res) => {
+router.post('/branch/merge-from-remote', async (req, res) => {
   const { repoPath, remoteBranch, strategy = 'merge' } = req.body;
   // remoteBranch: e.g. "origin/main" o "remotes/origin/main"
   if (!remoteBranch || remoteBranch.startsWith('-')) return res.status(400).json({ error: 'Nombre de rama remota inválido' });
@@ -224,6 +224,39 @@ router.post('/merge-from-remote', async (req, res) => {
       : e.message;
     res.status(500).json({ error: msg });
   }
+});
+
+// Abortar o continuar merge/rebase en progreso
+router.post('/conflict/abort', async (req, res) => {
+  const { repoPath, state } = req.body; // state: 'MERGING' | 'REBASING' | 'CHERRY-PICKING' | 'REVERTING'
+  try {
+    const g = git(repoPath);
+    if (state === 'MERGING')         await g.raw(['merge', '--abort']);
+    else if (state === 'REBASING')   await g.raw(['rebase', '--abort']);
+    else if (state === 'CHERRY-PICKING') await g.raw(['cherry-pick', '--abort']);
+    else if (state === 'REVERTING')  await g.raw(['revert', '--abort']);
+    else return res.status(400).json({ error: 'Estado desconocido: ' + state });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/conflict/continue', async (req, res) => {
+  const { repoPath, state, message } = req.body;
+  try {
+    const g = git(repoPath);
+    if (state === 'MERGING') {
+      // Para continuar un merge hay que hacer commit con los conflictos resueltos
+      if (!message) return res.status(400).json({ error: 'Se requiere mensaje de commit para continuar el merge' });
+      await g.commit(message);
+    } else if (state === 'REBASING') {
+      await g.raw(['rebase', '--continue']);
+    } else if (state === 'CHERRY-PICKING') {
+      await g.raw(['cherry-pick', '--continue']);
+    } else if (state === 'REVERTING') {
+      await g.raw(['revert', '--continue']);
+    } else return res.status(400).json({ error: 'Estado desconocido: ' + state });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 router.post('/merge', async (req, res) => {

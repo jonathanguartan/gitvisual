@@ -2,11 +2,11 @@
   "openTabs": [
     {
       "repoPath": "C:/Apache24/htdocs/JennyWeb",
-      "active": true
+      "active": false
     },
     {
       "repoPath": "C:/Proyectos/gitvisual",
-      "active": false
+      "active": true
     }
   ],
   "recentRepos": [
