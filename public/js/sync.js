@@ -68,6 +68,8 @@ export function startAutoFetch(minutes = 5) {
   if (!minutes || minutes <= 0) return;
   _autoFetchTimer = setInterval(async () => {
     if (!state.repoPath) return;
+    // Si hay un refresh en curso, saltar este ciclo para no bloquear git
+    if (window._refreshing) return;
     try {
       await post('/repo/fetch', {});
       await window.refreshBranches();

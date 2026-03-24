@@ -62,18 +62,27 @@ export async function loadRepo(repoPath) {
       if (check.missingConfig.remote) missing.push('remote origin');
       toast(`Config Git incompleta: falta ${missing.join(', ')}. Abre ⚙ Configuración.`, 'warn');
       window.openSettingsModal();
-    } else if (state.repoInfo?.githubInfo?.type === 'github' && !cfg.githubToken) {
-      toast('Repositorio GitHub detectado sin token de acceso personal. Configúralo en ⚙ → Cuenta para poder hacer push y ver PRs.', 'warn');
-      window.openSettingsModal('cuenta');
+    } else if (state.repoInfo?.githubInfo?.type === 'github' && !cfg.platforms?.github?.token) {
+      toast('Repositorio GitHub detectado sin token de acceso personal. Configúralo en ⚙ → Configuración para poder hacer push y ver PRs.', 'warn');
+      window.openSettingsModal('general');
     }
   } catch (e) {
     toast(`Error: ${e.message}`, 'error');
   }
 }
 
+let _refreshing = false;
 export async function refreshAll() {
-  await Promise.all([refreshInfo(), refreshStatus(), refreshBranches(), refreshStash(), refreshTags()]);
-  window.renderTabBar();
+  if (_refreshing) return;
+  _refreshing = true;
+  window._refreshing = true;
+  try {
+    await Promise.all([refreshInfo(), refreshStatus(), refreshBranches(), refreshStash(), refreshTags()]);
+    window.renderTabBar();
+  } finally {
+    _refreshing = false;
+    window._refreshing = false;
+  }
 }
 
 export async function refreshInfo() {
@@ -250,17 +259,17 @@ export function showWelcome() {
   loadWelcome();
 }
 
-// Focus/visibility refresh listeners
-window.addEventListener('focus', () => {
-  if (state.repoPath && document.getElementById('mainLayout').style.display !== 'none') {
-    refreshAll();
-  }
-});
+// Focus/visibility refresh listeners — debounced para evitar apilamiento de operaciones git
+let _focusDebounce = null;
+function _scheduleRefresh(fn) {
+  clearTimeout(_focusDebounce);
+  _focusDebounce = setTimeout(() => {
+    if (state.repoPath && document.getElementById('mainLayout').style.display !== 'none') fn();
+  }, 800);
+}
+window.addEventListener('focus', () => _scheduleRefresh(refreshAll));
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && state.repoPath &&
-      document.getElementById('mainLayout').style.display !== 'none') {
-    refreshStatus();
-  }
+  if (document.visibilityState === 'visible') _scheduleRefresh(refreshStatus);
 });
 
 // ─── Window assignments for HTML onclick handlers ────────────────────────────

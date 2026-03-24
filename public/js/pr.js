@@ -79,7 +79,7 @@ export async function openCreatePRModal() {
     .join('');
 
   document.getElementById('prBase').innerHTML = baseCandidates
-    .map(b => `<option value="${escAttr(b)}" ${b === mb && b !== state.currentBranch ? 'selected' : ''}>${escHtml(b)}</option>`)
+    .map(b => `<option value="${escAttr(b)}" ${b === mb ? 'selected' : ''}>${escHtml(b)}</option>`)
     .join('');
 
   document.getElementById('prTitle').value = '';
@@ -96,8 +96,9 @@ export async function submitPR() {
   if (!title)       { toast('El PR necesita un título', 'warn'); return; }
   if (head === base) { toast('La rama origen y destino no pueden ser iguales', 'warn'); return; }
 
+  if (!state.githubInfo) { toast('No se detectó repositorio remoto compatible', 'warn'); return; }
   try {
-    const type   = state.githubInfo.type;
+    const type    = state.githubInfo.type;
     const prLabel = type === 'gitlab' ? 'MR' : 'PR';
     const result = await api('POST', '/pr/create', {
       owner: state.githubInfo.owner,

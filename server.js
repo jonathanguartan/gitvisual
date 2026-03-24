@@ -29,6 +29,18 @@ function ensureGitInPath() {
 }
 ensureGitInPath();
 
+// ─── Middleware ──────────────────────────────────────────────────────────────
+
+// Valida que el repoPath esté presente y sea un string.
+// Esto evita que las rutas intenten operar en el directorio raíz del servidor.
+function validateRepoPath(req, res, next) {
+  const repoPath = req.query.repoPath || req.body.repoPath;
+  if (!repoPath || typeof repoPath !== 'string' || repoPath.trim() === '') {
+    return res.status(400).json({ error: 'Falta la ruta del repositorio (repoPath)' });
+  }
+  next();
+}
+
 app.use(require('cors')());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -37,13 +49,14 @@ app.use('/vendor/hljs', express.static(path.join(__dirname, 'node_modules/highli
 // ─── Routes ────────────────────────────────────────────────────────────────────
 
 app.use('/api/config', require('./routes/config'));
-app.use('/api/repo',   require('./routes/repo'));
-app.use('/api/repo',   require('./routes/branches'));
-app.use('/api/repo',   require('./routes/tags'));
-app.use('/api/repo',   require('./routes/stash'));
-app.use('/api/repo',   require('./routes/recover'));
-app.use('/api/pr',     require('./routes/pr'));
-app.use('/api/fs',     require('./routes/fs'));
+app.use('/api/repo',   validateRepoPath, require('./routes/repo'));
+app.use('/api/repo',   validateRepoPath, require('./routes/branches'));
+app.use('/api/repo',   validateRepoPath, require('./routes/tags'));
+app.use('/api/repo',   validateRepoPath, require('./routes/stash'));
+app.use('/api/repo',   validateRepoPath, require('./routes/recover'));
+app.use('/api/pr',     require('./routes/pr')); // No requiere repoPath — usa owner/repo/type
+app.use('/api/fs',     require('./routes/fs')); // No requiere repoPath para listar unidades/carpetas
+
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
 
@@ -55,9 +68,10 @@ const server = app.listen(PORT, () => {
 
   // No abrir browser si corremos dentro de Electron (él abre su propia ventana)
   if (!process.versions.electron) {
-    if (process.platform === 'win32')       exec(`cmd /c start ${url}`);
-    else if (process.platform === 'darwin') exec(`open ${url}`);
-    else                                    exec(`xdg-open ${url}`);
+    const handleError = (err) => { if (err) console.error(`[browser] No se pudo abrir automáticamente: ${err.message}`); };
+    if (process.platform === 'win32')       exec(`cmd /c start ${url}`, handleError);
+    else if (process.platform === 'darwin') exec(`open ${url}`, handleError);
+    else                                    exec(`xdg-open ${url}`, handleError);
   }
 });
 

@@ -217,7 +217,8 @@ router.get('/commit/diff-range', async (req, res) => {
 
 router.post('/stage-hunk', async (req, res) => {
   const { repoPath, patch, reverse } = req.body;
-  const tmp = path.join(require('os').tmpdir(), `gvm-hunk-${Date.now()}.patch`);
+  const tmpId = require('crypto').randomBytes(8).toString('hex');
+  const tmp = path.join(require('os').tmpdir(), `gvm-hunk-${tmpId}.patch`);
   try {
     fs.writeFileSync(tmp, patch, 'utf8');
     const args = ['apply', '--cached'];

@@ -4,9 +4,13 @@ const { git } = require('../lib/git');
 // Scan for lost stashes (git fsck) and deleted branches (reflog)
 router.get('/recover/scan', async (req, res) => {
   const { repoPath } = req.query;
+  if (!repoPath) return res.status(400).json({ error: 'Ruta no proporcionada' });
+
   try {
     const g = git(repoPath);
-    const currentBranches = (await g.branchLocal()).all;
+    // Get all branches (-a) to include remotes, and normalize names
+    const allBranches = await g.branch(['-a']);
+    const seen = new Set(allBranches.all.map(b => b.replace(/^remotes\/[^/]+\//, '')));
 
     // 1. Lost stashes via git fsck --unreachable
     const stashes = [];
@@ -43,7 +47,6 @@ router.get('/recover/scan', async (req, res) => {
     const deletedBranches = [];
     try {
       const reflogOut = await g.raw(['reflog', '--format=%H|%gs|%cr']);
-      const seen = new Set(currentBranches);
       for (const line of reflogOut.split('\n')) {
         const parts = line.split('|');
         if (parts.length < 3) continue;

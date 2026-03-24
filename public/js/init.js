@@ -138,6 +138,7 @@ document.getElementById('btnCompareBranches').addEventListener('click', () => wi
 
 document.getElementById('btnPushProd').addEventListener('click', () => window.openProdModal());
 document.getElementById('btnConfirmProd').addEventListener('click', () => window.pushToProduction());
+document.getElementById('btnConfirmPullFrom').addEventListener('click', () => window.confirmPullFrom());
 
 document.getElementById('btnCreatePR').addEventListener('click', () => window.openPRModal());
 document.getElementById('btnSubmitPR').addEventListener('click', () => window.submitPR());

@@ -101,6 +101,7 @@ function createWindow(port) {
     title: 'Git Visual Manager',
   });
 
+  mainWindow.setMenu(null);
   mainWindow.loadURL(`http://localhost:${port}`);
 
   mainWindow.once('ready-to-show', () => {
@@ -109,7 +110,16 @@ function createWindow(port) {
     mainWindow.focus();
   });
 
-  // Links externos (GitHub, Bitbucket, etc.) se abren en el browser del sistema
+  // Links externos se abren en el browser del sistema.
+  // will-navigate evita el crash de Chromium "origin.IsValid()" que ocurre
+  // cuando setWindowOpenHandler devuelve deny y Chromium intenta validar el origen.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!url.startsWith(`http://localhost:${port}`)) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };

@@ -281,7 +281,7 @@
                     <input type="checkbox" id="chkAmend" /> Amend
                   </label>
                 </div>
-                <button id="btnCommit" class="btn btn-primary btn-flex" onclick="doCommit()">✓ Commit</button>
+                <button id="btnCommit" class="btn btn-primary btn-flex">✓ Commit</button>
               </div>
             </div>
             <div id="diffView" class="diff-view">
@@ -554,6 +554,34 @@
   </div>
 
   <!-- Push to Production -->
+  <!-- Modal: Pull desde rama remota -->
+  <div id="modalPullFrom" class="modal-bg">
+    <div class="modal modal-sm">
+      <div class="modal-hdr">
+        <h2>↓ Pull en "<span id="pullFromLocalBranch"></span>"</h2>
+        <button class="btn btn-icon close-btn" data-close="modalPullFrom">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Traer cambios desde</label>
+          <select id="pullFromRemoteBranch"></select>
+          <small>Se hará fetch antes de integrar los cambios.</small>
+        </div>
+        <div class="form-row">
+          <label>Estrategia</label>
+          <select id="pullFromStrategy">
+            <option value="merge">Merge</option>
+            <option value="rebase">Rebase</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalPullFrom">Cancelar</button>
+        <button id="btnConfirmPullFrom" class="btn btn-primary">↓ Pull</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modalProd" class="modal-bg">
     <div class="modal modal-sm">
       <div class="modal-hdr">

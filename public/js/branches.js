@@ -20,17 +20,20 @@ export function branchCtxShow(event, bid) {
     if (!data.isCurrent) items += `<div class="ctx-item" onclick="branchCtxAction('checkout')">✓ Checkout</div>`;
     items += `<div class="ctx-item" onclick="branchCtxAction('log')">◷ Ver historial</div>`;
     items += `<div class="ctx-sep"></div>`;
+    items += `<div class="ctx-item ctx-primary" onclick="branchCtxAction('pull-from')">↓ Pull desde…</div>`;
     items += `<div class="ctx-item" onclick="branchCtxAction('rebase')">⎇ Rebase onto…</div>`;
     items += `<div class="ctx-item" onclick="branchCtxAction('rename')">✎ Renombrar</div>`;
     items += `<div class="ctx-sep"></div>`;
     if (!data.tracking?.hasUpstream)
       items += `<div class="ctx-item" onclick="branchCtxAction('set-upstream')">⇡ Asignar rama remota</div>`;
-    if (!data.isCurrent && data.tracking?.hasUpstream)
-      items += `<div class="ctx-item ctx-primary" onclick="branchCtxAction('pull-ff')">↓ Pull (actualizar)</div>`;
     if (!data.isCurrent) items += `<div class="ctx-item ctx-danger" onclick="branchCtxAction('delete')">✕ Eliminar rama</div>`;
   } else {
     items += `<div class="ctx-item" onclick="branchCtxAction('log')">◷ Ver historial</div>`;
     items += `<div class="ctx-item" onclick="branchCtxAction('checkout-remote')">⬇ Checkout local</div>`;
+    items += `<div class="ctx-item" onclick="branchCtxAction('new-from-remote')">⊕ Nueva rama desde aquí…</div>`;
+    items += `<div class="ctx-sep"></div>`;
+    items += `<div class="ctx-item ctx-primary" onclick="branchCtxAction('merge-from-remote')">↓ Merge en rama actual</div>`;
+    items += `<div class="ctx-item" onclick="branchCtxAction('rebase-from-remote')">⎇ Rebase en esta rama</div>`;
   }
 
   showCtxMenu('branchCtxMenu', event, items);
@@ -46,11 +49,15 @@ export function branchCtxAction(action) {
   if (!data) return;
   switch (action) {
     case 'checkout':        checkoutBranch(data.name); break;
+    case 'pull-from':       openPullFromModal(data.name, data.tracking?.upstream); break;
     case 'log':             viewBranchLog(data.fullName || data.name); break;
     case 'rename':          openRenameBranchModal(data.name); break;
     case 'rebase':          openRebaseModal(data.name); break;
     case 'delete':          deleteBranch(data.name, data.tracking?.upstream); break;
-    case 'checkout-remote': checkoutNewBranchFromRemote(data.name, data.fullName); break;
+    case 'checkout-remote':    checkoutRemoteBranch(data.fullName); break;
+    case 'new-from-remote':    openNewBranchModal(data.fullName); break;
+    case 'merge-from-remote':  mergeFromRemote(data.fullName, 'merge'); break;
+    case 'rebase-from-remote': mergeFromRemote(data.fullName, 'rebase'); break;
     case 'pull-ff':         pullBranchFF(data.name, data.tracking?.upstream); break;
     case 'set-upstream':    openSetUpstreamModal(data.name); break;
   }
@@ -330,6 +337,48 @@ export async function confirmDeleteBranch() {
     }
     toast(msg, 'error');
   }
+}
+
+export function openPullFromModal(localBranch, trackedUpstream) {
+  document.getElementById('pullFromLocalBranch').textContent = localBranch;
+
+  const allBranches   = Object.values(state.branches?.branches || {});
+  const remoteBranches = allBranches
+    .filter(b => b.name.startsWith('remotes/'))
+    .map(b => b.name.replace(/^remotes\//, '')); // "origin/main"
+
+  const sel = document.getElementById('pullFromRemoteBranch');
+  sel.innerHTML = remoteBranches
+    .map(b => `<option value="${escAttr(b)}" ${b === trackedUpstream ? 'selected' : ''}>${escHtml(b)}</option>`)
+    .join('');
+
+  // Si no hay ramas remotas cargadas, avisar
+  if (remoteBranches.length === 0) {
+    sel.innerHTML = '<option value="">Sin ramas remotas — haz fetch primero</option>';
+  }
+
+  openModal('modalPullFrom');
+}
+
+export async function confirmPullFrom() {
+  const remoteBranch = document.getElementById('pullFromRemoteBranch').value;
+  const strategy     = document.getElementById('pullFromStrategy').value;
+  if (!remoteBranch) { toast('Selecciona una rama remota', 'warn'); return; }
+
+  closeModal('modalPullFrom');
+  await mergeFromRemote(remoteBranch, strategy);
+}
+
+export async function mergeFromRemote(fullRemoteName, strategy = 'merge') {
+  const normalized = fullRemoteName.replace(/^remotes\//, ''); // "origin/main"
+  const action     = strategy === 'rebase' ? 'Rebaseando' : 'Mergeando';
+  const label      = `${action} desde ${normalized} en "${state.currentBranch}"…`;
+
+  try {
+    await opPost('/repo/branch/merge-from-remote', { remoteBranch: normalized, strategy }, label);
+    await window.refreshAll();
+    toast(`"${state.currentBranch}" actualizada desde ${normalized} ✓`, 'success');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 export async function checkoutNewBranchFromRemote(remoteDisplayName, fullRemoteName) {
@@ -663,6 +712,9 @@ window.openNewBranchModal       = openNewBranchModal;
 window.createBranch             = createBranch;
 window.updateCreateBranchBtn    = updateCreateBranchBtn;
 window.checkoutNewBranchFromRemote = checkoutNewBranchFromRemote;
+window.mergeFromRemote             = mergeFromRemote;
+window.openPullFromModal           = openPullFromModal;
+window.confirmPullFrom             = confirmPullFrom;
 window.pullBranchFF             = pullBranchFF;
 window.openCreateBranchAtModal  = openCreateBranchAtModal;
 window.openSetUpstreamModal     = openSetUpstreamModal;

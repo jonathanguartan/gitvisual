@@ -3,8 +3,9 @@ const path   = require('path');
 const fs     = require('fs');
 
 router.get('/list', (req, res) => {
-  const { path: dirPath } = req.query;
+  let { path: dirPath } = req.query;
   try {
+    // Si no hay ruta en Windows, listar unidades
     if (!dirPath && process.platform === 'win32') {
       const drives = [];
       for (const letter of 'CDEFGHIJKLMNOPQRSTUVWXYZAB'.split('')) {
@@ -12,6 +13,13 @@ router.get('/list', (req, res) => {
         try { fs.accessSync(d); drives.push({ name: d, path: d }); } catch (_) {}
       }
       return res.json({ entries: drives, current: '', parent: null });
+    }
+
+    // Prevención de Path Traversal:
+    // 1. Normalizar la ruta
+    // 2. Si contiene '..', lanzamos error
+    if (dirPath && dirPath.includes('..')) {
+      return res.status(400).json({ error: 'Ruta no permitida' });
     }
 
     const target = path.resolve(dirPath || '/').replace(/\\/g, '/');

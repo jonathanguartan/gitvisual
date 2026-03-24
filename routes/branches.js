@@ -1,6 +1,20 @@
 const router = require('express').Router();
 const { git } = require('../lib/git');
 
+/**
+ * Valida que un nombre de rama sea seguro y siga las reglas básicas de Git.
+ * Previene espacios, caracteres de control y secuencias peligrosas.
+ */
+function isValidRefName(name) {
+  if (!name || typeof name !== 'string') return false;
+  // Reglas básicas: no espacios, no .., no caracteres de control, no empieza con -, etc.
+  const invalidChars = /[\s\x00-\x1F\x7F~^:?*\[\\@]/;
+  if (invalidChars.test(name)) return false;
+  if (name.includes('..') || name.startsWith('/') || name.endsWith('/') || name.endsWith('.lock')) return false;
+  if (name.startsWith('-')) return false; // Previene inyección de opciones
+  return true;
+}
+
 router.get('/branches', async (req, res) => {
   const { repoPath } = req.query;
   try {
@@ -39,6 +53,9 @@ router.get('/branches/tracking', async (req, res) => {
 
 router.post('/branch/create', async (req, res) => {
   const { repoPath, branchName, fromBranch, noCheckout } = req.body;
+  if (!isValidRefName(branchName)) return res.status(400).json({ error: 'Nombre de rama inválido' });
+  if (fromBranch && !isValidRefName(fromBranch)) return res.status(400).json({ error: 'Nombre de rama base inválido' });
+
   try {
     const g = git(repoPath);
     if (noCheckout) {
@@ -57,6 +74,7 @@ router.post('/branch/create', async (req, res) => {
 
 router.post('/branch/checkout', async (req, res) => {
   const { repoPath, branchName } = req.body;
+  if (!isValidRefName(branchName)) return res.status(400).json({ error: 'Nombre de rama inválido' });
   try {
     await git(repoPath).checkout(branchName);
     res.json({ success: true });
@@ -67,10 +85,19 @@ router.post('/branch/checkout', async (req, res) => {
 
 router.post('/branch/checkout-remote', async (req, res) => {
   const { repoPath, remoteName } = req.body; // e.g. "origin/feature-x"
+  if (!remoteName || remoteName.startsWith('-')) return res.status(400).json({ error: 'Nombre de rama remota inválido' });
+  
   const parts     = remoteName.split('/');
   const localName = parts.slice(1).join('/');
+  if (!isValidRefName(localName)) return res.status(400).json({ error: 'Nombre de rama local resultante inválido' });
+
   try {
-    await git(repoPath).raw(['checkout', '-b', localName, '--track', remoteName]);
+    const g = git(repoPath);
+    const branches = await g.branchLocal();
+    if (branches.all.includes(localName)) {
+      return res.status(400).json({ error: `Ya existe una rama local llamada "${localName}". Haz checkout directamente o renómbrala primero.` });
+    }
+    await g.raw(['checkout', '-b', localName, '--track', remoteName]);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -79,8 +106,14 @@ router.post('/branch/checkout-remote', async (req, res) => {
 
 router.post('/branch/delete', async (req, res) => {
   const { repoPath, branchName, force } = req.body;
+  if (!isValidRefName(branchName)) return res.status(400).json({ error: 'Nombre de rama inválido' });
   try {
-    await git(repoPath).deleteLocalBranch(branchName, !!force);
+    const g = git(repoPath);
+    const status = await g.status();
+    if (status.current === branchName) {
+      return res.status(400).json({ error: `No puedes eliminar la rama activa ("${branchName}"). Cambia a otra rama primero.` });
+    }
+    await g.deleteLocalBranch(branchName, !!force);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -89,6 +122,7 @@ router.post('/branch/delete', async (req, res) => {
 
 router.post('/branch/rename', async (req, res) => {
   const { repoPath, branchName, newName } = req.body;
+  if (!isValidRefName(branchName) || !isValidRefName(newName)) return res.status(400).json({ error: 'Nombre de rama inválido' });
   try {
     await git(repoPath).raw(['branch', '-m', branchName, newName]);
     res.json({ success: true });
@@ -99,6 +133,8 @@ router.post('/branch/rename', async (req, res) => {
 
 router.post('/branch/delete-remote', async (req, res) => {
   const { repoPath, remote, branch } = req.body;
+  if (!isValidRefName(branch)) return res.status(400).json({ error: 'Nombre de rama inválido' });
+  if (!remote || remote.startsWith('-')) return res.status(400).json({ error: 'Nombre de remoto inválido' });
   try {
     await git(repoPath).raw(['push', remote, '--delete', branch]);
     res.json({ success: true });
@@ -109,17 +145,22 @@ router.post('/branch/delete-remote', async (req, res) => {
 
 router.post('/branch/rebase', async (req, res) => {
   const { repoPath, onto } = req.body;
+  if (!isValidRefName(onto)) return res.status(400).json({ error: 'Nombre de rama base inválido' });
   try {
     await git(repoPath).rebase([onto]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    const msg = e.message.includes('CONFLICT') || e.message.includes('REBASE') 
+      ? `Conflictos detectados durante el rebase sobre "${onto}". El repositorio está en modo rebase; resuelve los conflictos o usa --abort.` 
+      : e.message;
+    res.status(500).json({ error: msg });
   }
 });
 
 // Actualiza una rama local desde su remota sin hacer checkout (fast-forward only)
 router.post('/branch/pull-ff', async (req, res) => {
   const { repoPath, branch, remote = 'origin' } = req.body;
+  if (!isValidRefName(branch)) return res.status(400).json({ error: 'Nombre de rama inválido' });
   try {
     await git(repoPath).raw(['fetch', remote, `${branch}:${branch}`]);
     res.json({ success: true });
@@ -133,6 +174,7 @@ router.post('/branch/pull-ff', async (req, res) => {
 
 router.post('/branch/set-upstream', async (req, res) => {
   const { repoPath, branchName, upstream } = req.body;
+  if (!isValidRefName(branchName) || !isValidRefName(upstream)) return res.status(400).json({ error: 'Nombre de rama inválido' });
   try {
     await git(repoPath).raw(['branch', `--set-upstream-to=${upstream}`, branchName]);
     res.json({ success: true });
@@ -144,6 +186,8 @@ router.post('/branch/set-upstream', async (req, res) => {
 // Crear rama en un commit específico sin hacer checkout
 router.post('/branch/create-at', async (req, res) => {
   const { repoPath, branchName, hash } = req.body;
+  if (!isValidRefName(branchName)) return res.status(400).json({ error: 'Nombre de rama inválido' });
+  if (!hash || hash.startsWith('-')) return res.status(400).json({ error: 'Hash de commit inválido' });
   try {
     await git(repoPath).raw(['branch', branchName, hash]);
     res.json({ success: true });
@@ -152,17 +196,51 @@ router.post('/branch/create-at', async (req, res) => {
   }
 });
 
+// Fetch del remote + merge o rebase desde una rama remota hacia la rama activa
+router.post('/merge-from-remote', async (req, res) => {
+  const { repoPath, remoteBranch, strategy = 'merge' } = req.body;
+  // remoteBranch: e.g. "origin/main" o "remotes/origin/main"
+  if (!remoteBranch || remoteBranch.startsWith('-')) return res.status(400).json({ error: 'Nombre de rama remota inválido' });
+
+  const normalized = remoteBranch.replace(/^remotes\//, ''); // "origin/main"
+  const parts      = normalized.split('/');
+  if (parts.length < 2) return res.status(400).json({ error: 'Formato de rama remota inválido (espera origin/branch)' });
+  const remote     = parts[0];
+  const remoteName = parts.slice(1).join('/');
+
+  try {
+    const g = git(repoPath);
+    await g.fetch(remote, remoteName);
+
+    if (strategy === 'rebase') {
+      await g.rebase([normalized]);
+    } else {
+      await g.merge([normalized]);
+    }
+    res.json({ success: true });
+  } catch (e) {
+    const msg = e.message.includes('CONFLICT')
+      ? `Conflictos al integrar "${normalized}". Resuélvelos en la pestaña de cambios.`
+      : e.message;
+    res.status(500).json({ error: msg });
+  }
+});
+
 router.post('/merge', async (req, res) => {
   const { repoPath, sourceBranch } = req.body;
+  if (!isValidRefName(sourceBranch)) return res.status(400).json({ error: 'Nombre de rama origen inválido' });
   try {
     res.json({ success: true, result: await git(repoPath).merge([sourceBranch]) });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    const msg = e.message.includes('CONFLICT') ? `Conflictos detectados al fusionar "${sourceBranch}". Resuélvelos en la pestaña de cambios.` : e.message;
+    res.status(500).json({ error: msg });
   }
 });
 
 router.post('/cherry-pick', async (req, res) => {
   const { repoPath, commitHash, targetBranch } = req.body;
+  if (!commitHash || commitHash.startsWith('-')) return res.status(400).json({ error: 'Hash de commit inválido' });
+  if (targetBranch && !isValidRefName(targetBranch)) return res.status(400).json({ error: 'Nombre de rama destino inválido' });
   try {
     const g = git(repoPath);
     const status = await g.status();
@@ -174,7 +252,8 @@ router.post('/cherry-pick', async (req, res) => {
     await g.raw(['cherry-pick', commitHash]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    const msg = e.message.includes('CONFLICT') ? `Conflictos detectados durante el cherry-pick. Resuélvelos manualmente.` : e.message;
+    res.status(500).json({ error: msg });
   }
 });
 

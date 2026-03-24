@@ -241,7 +241,7 @@ async function recoverStashStore(fullHash, message) {
 }
 
 export async function recoverBranch(hash, name) {
-  const currentBranches = state.branches?.all || [];
+  const currentBranches = Object.keys(state.branches?.branches || []);
   let branchName = name;
   if (currentBranches.includes(name)) {
     branchName = prompt(`La rama "${name}" ya existe. Introduce un nuevo nombre:`, name + '-recovered');
