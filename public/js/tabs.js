@@ -55,6 +55,11 @@ export async function switchRepoTab(id) {
 }
 
 export function newRepoTab() {
+  const emptyTab = tabs.find(t => !t.repoPath);
+  if (emptyTab) {
+    switchRepoTab(emptyTab.id);
+    return;
+  }
   const tab = newTabData('tab_' + Date.now());
   tabs.push(tab);
   setActiveTabId(tab.id);

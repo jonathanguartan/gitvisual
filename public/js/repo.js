@@ -22,6 +22,18 @@ export async function loadRepo(repoPath) {
     return;
   }
 
+  // If current tab is occupied, try to find an empty one or create a new one
+  if (state.repoPath) {
+    const emptyTab = tabs.find(t => !t.repoPath);
+    if (emptyTab) {
+      await window.switchRepoTab(emptyTab.id);
+    } else {
+      window.newRepoTab();
+      // After newRepoTab, state is already updated and activeTabId is set,
+      // but we need to wait for it or just know that activeTab() is now the new one.
+    }
+  }
+
   try {
     const check = await api('GET', `/repo/check?repoPath=${encodeURIComponent(repoPath)}`);
 
