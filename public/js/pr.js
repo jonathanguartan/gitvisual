@@ -22,7 +22,11 @@ export async function loadPRs() {
   }
   document.getElementById('prRepoLabel').textContent = `${state.githubInfo.type.toUpperCase()}: ${state.githubInfo.owner}/${state.githubInfo.repo}`;
   try {
-    const prs = await api('GET', `/pr/list?owner=${state.githubInfo.owner}&repo=${state.githubInfo.repo}&type=${state.githubInfo.type}`);
+    const prs = await get('/pr/list', { 
+      owner: state.githubInfo.owner, 
+      repo:  state.githubInfo.repo, 
+      type:  state.githubInfo.type 
+    });
     const prLabel = state.githubInfo.type === 'gitlab' ? 'Merge Requests' : 'Pull Requests';
     if (!prs.length) { el.innerHTML = empty('⎇', `Sin ${prLabel} abiertos`); return; }
     el.innerHTML = prs.map(pr => `
@@ -47,7 +51,7 @@ export async function openCreatePRModal() {
 
   const type = state.githubInfo.type;
 
-  const auth = await api('GET', `/pr/auth?type=${type}`);
+  const auth = await get('/pr/auth', { type });
   if (!auth.ok) {
     toast(auth.message, 'warn');
     window.openSettingsModal('general');
@@ -100,7 +104,7 @@ export async function submitPR() {
   try {
     const type    = state.githubInfo.type;
     const prLabel = type === 'gitlab' ? 'MR' : 'PR';
-    const result = await api('POST', '/pr/create', {
+    const result = await post('/pr/create', {
       owner: state.githubInfo.owner,
       repo:  state.githubInfo.repo,
       type,

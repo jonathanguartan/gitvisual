@@ -43,6 +43,10 @@ async function _renderPlatformSettings(cfg) {
       return `<fieldset class="form-group-set">
         <legend>${p.name}</legend>
         ${fields}
+        <div class="platform-verify-row">
+          <button class="btn btn-xs btn-secondary" onclick="verifyPlatformCredentials('${p.id}')">Verificar credenciales</button>
+          <span id="verify_status_${p.id}" class="platform-verify-status"></span>
+        </div>
       </fieldset>`;
     }).join('');
   } catch (e) {
@@ -62,6 +66,37 @@ function _collectPlatformSettings(platforms) {
     result[p.id] = entry;
   }
   return result;
+}
+
+// ─── Verify Platform Credentials ─────────────────────────────────────────────
+
+export async function verifyPlatformCredentials(platformId) {
+  const platform = _platformsMeta?.find(p => p.id === platformId);
+  if (!platform) return;
+
+  const statusEl = document.getElementById(`verify_status_${platformId}`);
+  statusEl.textContent = 'Verificando…';
+  statusEl.className   = 'platform-verify-status';
+
+  const credentials = {};
+  for (const f of platform.configFields) {
+    const el = document.getElementById(_platformFieldId(platformId, f.key));
+    if (el) credentials[f.key] = el.value.trim();
+  }
+
+  try {
+    const result = await api('POST', '/pr/verify', { type: platformId, ...credentials });
+    if (result.ok) {
+      statusEl.textContent = result.login ? `✓ Conectado como ${result.login}` : '✓ Credenciales válidas';
+      statusEl.className   = 'platform-verify-status ok';
+    } else {
+      statusEl.textContent = '✗ ' + result.error;
+      statusEl.className   = 'platform-verify-status fail';
+    }
+  } catch (e) {
+    statusEl.textContent = '✗ ' + e.message;
+    statusEl.className   = 'platform-verify-status fail';
+  }
 }
 
 // ─── Open / Save ──────────────────────────────────────────────────────────────
@@ -331,9 +366,10 @@ export async function pushToProduction(branchOverride = null, mergeFromOverride 
 
 // ─── Window assignments for HTML onclick handlers ────────────────────────────
 
-window.openSettingsModal   = openSettingsModal;
-window.saveSettings        = saveSettings;
-window.switchSettingsTab   = switchSettingsTab;
+window.openSettingsModal          = openSettingsModal;
+window.saveSettings               = saveSettings;
+window.switchSettingsTab          = switchSettingsTab;
+window.verifyPlatformCredentials  = verifyPlatformCredentials;
 window.openRecoverModal    = openRecoverModal;
 window.scanRecover         = scanRecover;
 window.recoverFromStash    = recoverFromStash;

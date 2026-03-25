@@ -1,13 +1,24 @@
 const router = require('express').Router();
 const { git } = require('../lib/git');
 
+// Parsea el subject de git stash en sus partes:
+// "On branch feature/xxx: abc1234 Descripción" → { branch, description }
+// "WIP on main: abc1234 último commit"         → { branch, description, wip: true }
+function parseStashMessage(raw) {
+  const m = raw.match(/^(WIP on|On branch) ([^:]+): [0-9a-f]+ (.+)$/);
+  if (!m) return { branch: '', description: raw };
+  return { branch: m[2].trim(), description: m[3].trim(), wip: m[1] === 'WIP on' };
+}
+
 router.get('/stash/list', async (req, res) => {
   const { repoPath } = req.query;
   try {
     const output = await git(repoPath).stash(['list', '--format=%gd|||%s|||%cr']);
     const stashes = output.trim().split('\n').filter(Boolean).map(line => {
-      const [ref, message, date] = line.split('|||').map(s => s.trim());
-      return { ref, message, date };
+      const [ref, rawMessage, date] = line.split('|||').map(s => s.trim());
+      const seq = (ref.match(/\{(\d+)\}/) || [])[1] ?? '?';
+      const { branch, description, wip } = parseStashMessage(rawMessage);
+      return { ref, seq, branch, description, wip: !!wip, date };
     });
     res.json(stashes);
   } catch (e) {
@@ -27,20 +38,50 @@ router.post('/stash', async (req, res) => {
   }
 });
 
+// Incrementa el índice numérico de un ref de stash: stash@{N} → stash@{N+1}
+function shiftRef(ref) {
+  if (!ref) return 'stash@{1}';
+  return ref.replace(/\{(\d+)\}/, (_, n) => `{${parseInt(n, 10) + 1}}`);
+}
+
+function isConflictError(msg) {
+  return msg.includes('would be overwritten') || msg.includes('already exists, no checkout');
+}
+
 router.post('/stash/pop', async (req, res) => {
-  const { repoPath, ref } = req.body;
+  const { repoPath, ref, autoStash } = req.body;
   try {
-    res.json({ success: true, result: await git(repoPath).stash(ref ? ['pop', ref] : ['pop']) });
+    if (autoStash) {
+      const out = await git(repoPath).stash(['push', '--include-untracked', '-m', `Auto-stash antes de aplicar ${ref || 'stash'}`]);
+      const didStash = !out.includes('No local changes to save');
+      const target = didStash ? shiftRef(ref) : (ref || 'stash@{0}');
+      await git(repoPath).stash(['pop', target]);
+    } else {
+      await git(repoPath).stash(ref ? ['pop', ref] : ['pop']);
+    }
+    res.json({ success: true });
   } catch (e) {
+    if (!autoStash && isConflictError(e.message))
+      return res.json({ conflict: true });
     res.status(500).json({ error: e.message });
   }
 });
 
 router.post('/stash/apply', async (req, res) => {
-  const { repoPath, ref } = req.body;
+  const { repoPath, ref, autoStash } = req.body;
   try {
-    res.json({ success: true, result: await git(repoPath).stash(ref ? ['apply', ref] : ['apply']) });
+    if (autoStash) {
+      const out = await git(repoPath).stash(['push', '--include-untracked', '-m', `Auto-stash antes de aplicar ${ref || 'stash'}`]);
+      const didStash = !out.includes('No local changes to save');
+      const target = didStash ? shiftRef(ref) : (ref || 'stash@{0}');
+      await git(repoPath).stash(['apply', target]);
+    } else {
+      await git(repoPath).stash(ref ? ['apply', ref] : ['apply']);
+    }
+    res.json({ success: true });
   } catch (e) {
+    if (!autoStash && isConflictError(e.message))
+      return res.json({ conflict: true });
     res.status(500).json({ error: e.message });
   }
 });

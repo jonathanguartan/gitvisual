@@ -1,4 +1,6 @@
 node_modules/
+app-config.json
+app-config.json.bak
 AGENTS.md
 README.md
 .claude/

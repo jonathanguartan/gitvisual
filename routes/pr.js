@@ -18,6 +18,24 @@ router.get('/auth', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Verify credentials ────────────────────────────────────────────────────────
+
+router.post('/verify', async (req, res) => {
+  const { type, ...credentials } = req.body;
+  const platform = registry.get(type);
+  if (!platform) return res.json({ ok: false, error: `Plataforma desconocida: "${type}"` });
+
+  if (!platform.hasAuth(credentials))
+    return res.json({ ok: false, error: platform.missingAuthMsg });
+
+  try {
+    const info = await platform.verifyAuth(credentials);
+    res.json({ ok: true, login: info?.login || '' });
+  } catch (e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
 // ─── List PRs ──────────────────────────────────────────────────────────────────
 
 router.get('/list', async (req, res) => {

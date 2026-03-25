@@ -94,10 +94,13 @@ router.get('/info', async (req, res) => {
     }
 
     let gitPlatformInfo = null;
-    if (remotes.length > 0) {
-      const url    = remotes[0].refs.fetch || remotes[0].refs.push || '';
+    for (const r of remotes) {
+      const url    = r.refs.fetch || r.refs.push || '';
       const found  = registry.detect(url, configApp.platforms);
-      if (found) gitPlatformInfo = { type: found.type, owner: found.owner, repo: found.repo };
+      if (found) {
+        gitPlatformInfo = { type: found.type, owner: found.owner, repo: found.repo };
+        break;
+      }
     }
 
     // Extract branch name from "refs/remotes/origin/main" → "main"

@@ -14,11 +14,13 @@ export function renderStashList(stashes) {
     el.innerHTML = '<div class="stash-empty">Sin stashes</div>';
     return;
   }
-  el.innerHTML = stashes.map((s, i) => `
-    <div class="stash-item" data-stash-idx="${i}" onclick="showStashDiff(${i})" style="cursor:pointer">
+  el.innerHTML = stashes.map((s, i) => {
+    const label = `${s.seq} - ${escHtml(s.branch)}: ${escHtml(s.description)}`;
+    return `
+    <div class="stash-item" data-stash-idx="${i}" onclick="showStashDiff(${i})" style="cursor:pointer"
+         title="${escAttr(s.description)}">
       <div class="stash-item-body">
-        <div class="stash-item-ref">${escHtml(s.ref)}</div>
-        <div class="stash-item-msg" title="${escAttr(s.message)}">${escHtml(s.message)}</div>
+        <div class="stash-item-msg stash-item-label">${label}</div>
         <div class="stash-item-date">${escHtml(s.date)}</div>
       </div>
       <div class="stash-actions">
@@ -26,8 +28,8 @@ export function renderStashList(stashes) {
         <button class="stash-btn apply" onclick="event.stopPropagation();stashApply('${escAttr(s.ref)}')" title="Aplicar (conservar)">↓</button>
         <button class="stash-btn drop"  onclick="event.stopPropagation();stashDrop('${escAttr(s.ref)}')"  title="Eliminar">✕</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 export async function showStashDiff(idx) {
@@ -42,7 +44,7 @@ export async function showStashDiff(idx) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-stash').classList.add('active');
 
-  document.getElementById('stashViewTitle').textContent = `${stash.ref} — ${stash.message}`;
+  document.getElementById('stashViewTitle').textContent = `${stash.seq} - ${stash.branch}: ${stash.description}`;
   document.getElementById('stashFileList').innerHTML = spinner();
   document.getElementById('stashDiffView').innerHTML = '<div class="diff-hint">Selecciona un archivo</div>';
 
@@ -113,19 +115,32 @@ export async function confirmStash() {
   } catch (e) { toast(e.message, 'error'); }
 }
 
+async function _applyWithConflictHandling(action, ref) {
+  const label  = action === 'pop' ? 'aplicado y eliminado' : 'aplicado (conservado en la lista)';
+  const result = await opPost(`/repo/stash/${action}`, { ref }, `Aplicando ${ref}…`);
+
+  if (result?.conflict) {
+    const ok = confirm(
+      `"${ref}" tiene conflictos con los cambios actuales del repo.\n\n` +
+      `¿Guardar automáticamente tus cambios actuales en un nuevo stash y luego aplicar?`
+    );
+    if (!ok) return;
+    await opPost(`/repo/stash/${action}`, { ref, autoStash: true }, `Aplicando ${ref}…`);
+  }
+
+  await Promise.all([window.refreshStatus(), _refreshStash()]);
+  toast(`${ref} ${label}`, 'success');
+}
+
 export async function stashPop(ref) {
   try {
-    await opPost('/repo/stash/pop', { ref }, `Aplicando ${ref}…`);
-    await Promise.all([window.refreshStatus(), _refreshStash()]);
-    toast(`${ref} aplicado y eliminado`, 'success');
+    await _applyWithConflictHandling('pop', ref);
   } catch (e) { toast(e.message, 'error'); }
 }
 
 export async function stashApply(ref) {
   try {
-    await opPost('/repo/stash/apply', { ref }, `Aplicando ${ref}…`);
-    await Promise.all([window.refreshStatus(), _refreshStash()]);
-    toast(`${ref} aplicado (conservado en la lista)`, 'success');
+    await _applyWithConflictHandling('apply', ref);
   } catch (e) { toast(e.message, 'error'); }
 }
 
