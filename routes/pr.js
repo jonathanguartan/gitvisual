@@ -1,4 +1,5 @@
 const router   = require('express').Router();
+const { handleGitError } = require('../lib/git-errors');
 const { loadConfig } = require('../lib/config');
 const registry = require('../lib/platforms');
 
@@ -53,7 +54,7 @@ router.get('/list', async (req, res) => {
     const prs = await platform.listPRs(platformCfg, { owner, repo });
     res.json(prs);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -74,7 +75,7 @@ router.post('/create', async (req, res) => {
     const pr = await platform.createPR(platformCfg, { owner, repo, title, body, head, base });
     res.json({ success: true, pr });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 

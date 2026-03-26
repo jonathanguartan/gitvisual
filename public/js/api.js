@@ -24,6 +24,7 @@ export const post = (path, body = {}) => api('POST', path, { repoPath: state.rep
 // ─── Operation Overlay ───────────────────────────────────────────────────────
 
 let _opAbort = null;
+let _opCount = 0;  // operaciones concurrentes con overlay activo
 
 export function showOp(label) {
   document.getElementById('opLabel').textContent = label;
@@ -31,13 +32,23 @@ export function showOp(label) {
 }
 
 export function hideOp() {
+  // Solo ocultar si no hay otras operaciones en curso
+  if (_opCount > 0) return;
   document.getElementById('opOverlay').classList.remove('active');
   _opAbort = null;
 }
 
-// Como `post` pero muestra el overlay bloqueante y soporta cancelación
-export async function opPost(path, body = {}, label = 'Procesando…') {
-  showOp(label);
+// Como `post` pero muestra el overlay si la operación tarda más de `threshold` ms.
+// Operaciones rápidas (< threshold) no bloquean la UI en absoluto.
+// Si dos llamadas concurrentes tardan, el overlay permanece hasta que ambas terminen.
+export async function opPost(path, body = {}, label = 'Procesando…', threshold = 300) {
+  let overlayShown = false;
+  const timer = setTimeout(() => {
+    overlayShown = true;
+    _opCount++;
+    showOp(label);
+  }, threshold);
+
   const ctrl = new AbortController();
   _opAbort = ctrl;
   try {
@@ -56,7 +67,9 @@ export async function opPost(path, body = {}, label = 'Procesando…') {
     if (e.name === 'AbortError') return null;
     throw e;
   } finally {
-    hideOp();
+    clearTimeout(timer);
+    if (overlayShown) { _opCount = Math.max(0, _opCount - 1); hideOp(); }
+    _opAbort = null;
   }
 }
 

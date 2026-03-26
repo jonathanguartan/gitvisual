@@ -104,6 +104,15 @@ export async function confirmStash() {
   const message          = document.getElementById('stashMessage').value.trim();
   const includeUntracked = document.getElementById('stashUntracked').checked;
 
+  const conflicted = state.status?.conflicted || [];
+  if (conflicted.length) {
+    const names = conflicted.map(p => p.split('/').pop());
+    const preview = names.slice(0, 3).join(', ');
+    const extra   = names.length > 3 ? ` y ${names.length - 3} más` : '';
+    toast(`No se puede crear el stash: resuelve los conflictos primero — ${preview}${extra}`, 'error');
+    return;
+  }
+
   const hasPending = (state.status?.files || []).some(f => f.working_dir !== ' ' || (f.index !== ' ' && f.index !== '?'));
   if (!hasPending) { toast('No hay cambios para guardar en stash', 'warn'); return; }
 
@@ -116,10 +125,22 @@ export async function confirmStash() {
 }
 
 async function _applyWithConflictHandling(action, ref) {
-  const label  = action === 'pop' ? 'aplicado y eliminado' : 'aplicado (conservado en la lista)';
   const result = await opPost(`/repo/stash/${action}`, { ref }, `Aplicando ${ref}…`);
 
-  if (result?.conflict) {
+  // Git aplicó lo que pudo pero dejó marcadores de conflicto (<<<) en los archivos.
+  // Refrescar el estado y dejar que el usuario resuelva desde la pestaña de cambios.
+  if (result?.conflict && result.type === 'merge') {
+    await Promise.all([window.refreshStatus(), _refreshStash()]);
+    toast(
+      `${ref} aplicado con conflictos. Resuélvelos en la pestaña de Cambios${action === 'pop' ? ' y luego elimina el stash manualmente' : ''}.`,
+      'warn'
+    );
+    return;
+  }
+
+  // Git no pudo empezar porque los archivos locales serían sobreescritos.
+  // Ofrecer auto-stash de los cambios actuales antes de aplicar.
+  if (result?.conflict && result.type === 'prevented') {
     const ok = confirm(
       `"${ref}" tiene conflictos con los cambios actuales del repo.\n\n` +
       `¿Guardar automáticamente tus cambios actuales en un nuevo stash y luego aplicar?`
@@ -128,6 +149,7 @@ async function _applyWithConflictHandling(action, ref) {
     await opPost(`/repo/stash/${action}`, { ref, autoStash: true }, `Aplicando ${ref}…`);
   }
 
+  const label = action === 'pop' ? 'aplicado y eliminado' : 'aplicado (conservado en la lista)';
   await Promise.all([window.refreshStatus(), _refreshStash()]);
   toast(`${ref} ${label}`, 'success');
 }

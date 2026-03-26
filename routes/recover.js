@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { git } = require('../lib/git');
+const { handleGitError } = require('../lib/git-errors');
 
 // Scan for lost stashes (git fsck) and deleted branches (reflog)
 router.get('/recover/scan', async (req, res) => {
@@ -65,7 +66,7 @@ router.get('/recover/scan', async (req, res) => {
 
     res.json({ stashes, deletedBranches });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -75,7 +76,7 @@ router.post('/recover/stash-apply', async (req, res) => {
     await git(repoPath).raw(['stash', 'apply', fullHash]);
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -85,7 +86,7 @@ router.post('/recover/stash-store', async (req, res) => {
     await git(repoPath).raw(['stash', 'store', '-m', message || 'Stash recuperado', fullHash]);
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -95,7 +96,7 @@ router.post('/recover/branch', async (req, res) => {
     await git(repoPath).raw(['branch', name, hash]);
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 

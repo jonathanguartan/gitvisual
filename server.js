@@ -31,12 +31,20 @@ ensureGitInPath();
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
 
-// Valida que el repoPath esté presente y sea un string.
-// Esto evita que las rutas intenten operar en el directorio raíz del servidor.
+// Valida que el repoPath esté presente, sea un string y exista en el disco.
 function validateRepoPath(req, res, next) {
   const repoPath = req.query.repoPath || req.body.repoPath;
   if (!repoPath || typeof repoPath !== 'string' || repoPath.trim() === '') {
     return res.status(400).json({ error: 'Falta la ruta del repositorio (repoPath)' });
+  }
+
+  try {
+    const stats = fs.statSync(repoPath);
+    if (!stats.isDirectory()) {
+      return res.status(400).json({ error: 'La ruta proporcionada no es un directorio' });
+    }
+  } catch (err) {
+    return res.status(400).json({ error: 'La ruta del repositorio no existe o no es accesible' });
   }
   next();
 }
@@ -57,6 +65,9 @@ app.use('/api/repo',   validateRepoPath, require('./routes/recover'));
 app.use('/api/pr',     require('./routes/pr')); // No requiere repoPath — usa owner/repo/type
 app.use('/api/fs',     require('./routes/fs')); // No requiere repoPath para listar unidades/carpetas
 
+// ─── Error handler ─────────────────────────────────────────────────────────────
+// Captura errores no manejados pasados a next(err) desde cualquier ruta.
+app.use(require('./lib/git-errors').gitErrorMiddleware);
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
 

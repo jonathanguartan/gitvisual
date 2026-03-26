@@ -220,7 +220,22 @@
 
           <!-- Files column -->
           <div class="files-col">
-            <div class="files-section">
+            <div class="files-filter-bar">
+              <select id="fileFilterSelect" class="file-filter-select" onchange="setFileFilter(this.value)">
+                <optgroup label="Filtrar por estado">
+                  <option value="all">Todos</option>
+                  <option value="conflict">⚠ Conflictos</option>
+                  <option value="modified">Modificados</option>
+                  <option value="untracked">Sin rastrear</option>
+                  <option value="added">Añadidos</option>
+                  <option value="deleted">Eliminados</option>
+                </optgroup>
+                <optgroup label="Vista">
+                  <option value="all-files">📁 Todos los archivos</option>
+                </optgroup>
+              </select>
+            </div>
+            <div id="stagedSection" class="files-section">
               <div class="files-hdr">
                 <span>Staged <span id="stagedCount" class="badge">0</span></span>
                 <div class="hdr-actions">
@@ -242,7 +257,7 @@
                 ondrop="fileDrop(event,'staged')"></div>
             </div>
             <div class="resizer resizer-row" id="stagedResizer"></div>
-            <div class="files-section">
+            <div id="unstagedSection" class="files-section">
               <div class="files-hdr">
                 <span>Pendientes <span id="unstagedCount" class="badge badge-warn">0</span></span>
                 <div class="hdr-actions">

@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { git } = require('../lib/git');
+const { handleGitError } = require('../lib/git-errors');
 
 // Parsea el subject de git stash en sus partes:
 // "On branch feature/xxx: abc1234 Descripción" → { branch, description }
@@ -22,7 +23,7 @@ router.get('/stash/list', async (req, res) => {
     });
     res.json(stashes);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -34,7 +35,7 @@ router.post('/stash', async (req, res) => {
     if (message) args.push('-m', message);
     res.json({ success: true, result: await git(repoPath).stash(args.length ? args : undefined) });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -44,8 +45,14 @@ function shiftRef(ref) {
   return ref.replace(/\{(\d+)\}/, (_, n) => `{${parseInt(n, 10) + 1}}`);
 }
 
-function isConflictError(msg) {
+// Git no puede ni empezar: ficheros locales bloquean la aplicación del stash
+function isPreventedError(msg) {
   return msg.includes('would be overwritten') || msg.includes('already exists, no checkout');
+}
+
+// Git aplicó lo que pudo pero dejó marcadores de conflicto (<<<) en los archivos
+function isMergeConflict(msg) {
+  return msg.includes('CONFLICT') || msg.includes('Merge conflict');
 }
 
 router.post('/stash/pop', async (req, res) => {
@@ -61,9 +68,11 @@ router.post('/stash/pop', async (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
-    if (!autoStash && isConflictError(e.message))
-      return res.json({ conflict: true });
-    res.status(500).json({ error: e.message });
+    if (!autoStash && isMergeConflict(e.message))
+      return res.json({ conflict: true, type: 'merge' });
+    if (!autoStash && isPreventedError(e.message))
+      return res.json({ conflict: true, type: 'prevented' });
+    handleGitError(res, e);
   }
 });
 
@@ -80,9 +89,11 @@ router.post('/stash/apply', async (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
-    if (!autoStash && isConflictError(e.message))
-      return res.json({ conflict: true });
-    res.status(500).json({ error: e.message });
+    if (!autoStash && isMergeConflict(e.message))
+      return res.json({ conflict: true, type: 'merge' });
+    if (!autoStash && isPreventedError(e.message))
+      return res.json({ conflict: true, type: 'prevented' });
+    handleGitError(res, e);
   }
 });
 
@@ -91,7 +102,7 @@ router.post('/stash/drop', async (req, res) => {
   try {
     res.json({ success: true, result: await git(repoPath).stash(ref ? ['drop', ref] : ['drop']) });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -101,7 +112,7 @@ router.get('/stash/show', async (req, res) => {
     const diff = await git(repoPath).raw(['stash', 'show', '-p', '--format=', ref]);
     res.json({ diff });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 

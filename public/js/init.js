@@ -39,7 +39,7 @@ window.stageAll = async () => {
 window.unstageAll = async () => {
   if ((state.status?.staged || []).length === 0) return;
   try {
-    await opPost('/repo/unstage', { files: 'all' }, 'Quitando todo del stage…');
+    await opPost('/repo/unstage', { files: 'all' }, 'Limpiando stage…');
     await window.refreshStatus();
     toast('Stage limpiado', 'info');
   } catch (e) { toast(e.message, 'error'); }
@@ -50,7 +50,7 @@ window.discardAll = async () => {
   if (unstaged.length === 0) return;
   if (!confirm(`¿Descartar TODOS los cambios no preparados? (${unstaged.length} archivos)\nEsta acción NO se puede deshacer.`)) return;
   try {
-    await opPost('/repo/discard', { files: 'all' }, 'Descartando todos los cambios…');
+    await opPost('/repo/discard', { files: 'all' }, 'Descartando cambios…');
     await window.refreshStatus();
     toast('Todos los cambios descartados', 'info');
   } catch (e) { toast(e.message, 'error'); }

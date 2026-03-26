@@ -1,11 +1,24 @@
 const router = require('express').Router();
 const path   = require('path');
 const fs     = require('fs');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const simpleGit  = require('simple-git');
 const { git }    = require('../lib/git');
 const { loadConfig } = require('../lib/config');
 const registry = require('../lib/platforms');
+const { handleGitError } = require('../lib/git-errors');
+
+/**
+ * Valida que un nombre de rama o remoto sea seguro.
+ */
+function isValidRefName(name) {
+  if (!name || typeof name !== 'string') return false;
+  const invalidChars = /[\s\x00-\x1F\x7F~^:?*\[\\@]/;
+  if (invalidChars.test(name)) return false;
+  if (name.includes('..') || name.startsWith('/') || name.endsWith('/') || name.endsWith('.lock')) return false;
+  if (name.startsWith('-')) return false;
+  return true;
+}
 
 // ─── Repo Check & Init ─────────────────────────────────────────────────────────
 
@@ -54,7 +67,7 @@ router.post('/init', async (req, res) => {
     await git(repoPath).init();
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -64,7 +77,7 @@ router.post('/clone', async (req, res) => {
     await simpleGit().clone(remoteUrl, localPath);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -85,7 +98,8 @@ router.get('/info', async (req, res) => {
 
     // Detect default branch from various possible remotes
     let originHead = '';
-    const remoteNames = remotes.length > 0 ? remotes.map(r => r.name) : ['origin'];
+    const remotesSafe = remotes.filter(r => isValidRefName(r.name));
+    const remoteNames = remotesSafe.length > 0 ? remotesSafe.map(r => r.name) : ['origin'];
     for (const rName of remoteNames) {
       try {
         originHead = await g.raw(['symbolic-ref', `refs/remotes/${rName}/HEAD`]);
@@ -144,7 +158,7 @@ router.get('/info', async (req, res) => {
       conflictedFiles,
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -153,7 +167,30 @@ router.get('/status', async (req, res) => {
   try {
     res.json(await git(repoPath).status());
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
+  }
+});
+
+// Todos los archivos rastreados + sin rastrear, con su estado actual
+router.get('/files/all', async (req, res) => {
+  const { repoPath } = req.query;
+  try {
+    const g = git(repoPath);
+    const [lsOut, status] = await Promise.all([
+      g.raw(['ls-files', '--cached', '--others', '--exclude-standard']),
+      g.status(),
+    ]);
+    const statusMap = {};
+    for (const f of (status.files || [])) statusMap[f.path] = f;
+
+    const files = lsOut.trim().split('\n').filter(Boolean).map(path => ({
+      path,
+      index:       statusMap[path]?.index       ?? ' ',
+      working_dir: statusMap[path]?.working_dir ?? ' ',
+    }));
+    res.json(files);
+  } catch (e) {
+    handleGitError(res, e);
   }
 });
 
@@ -208,7 +245,7 @@ router.get('/log', async (req, res) => {
     res.json({ all, ...(branchNotFound && { branchNotFound: true }) });
   } catch (e) {
     console.error('Log error:', e);
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -226,7 +263,7 @@ router.get('/diff', async (req, res) => {
       : await g.diff(baseArgs);
     res.json({ diff });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -242,25 +279,28 @@ router.get('/commit/files', async (req, res) => {
     });
     res.json({ files });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
 router.get('/commit/diff', async (req, res) => {
   const { repoPath, hash, file } = req.query;
+  if (hash && hash.startsWith('-')) return res.status(400).json({ error: 'Hash inválido' });
   try {
     res.json({ diff: await git(repoPath).raw(['show', `${hash}`, '--', file]) });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
 router.get('/commit/diff-range', async (req, res) => {
   const { repoPath, hash1, hash2, file } = req.query;
+  if ((hash1 && hash1.startsWith('-')) || (hash2 && hash2.startsWith('-'))) 
+    return res.status(400).json({ error: 'Hash inválido' });
   try {
     res.json({ diff: await git(repoPath).raw(['diff', hash1, hash2, '--', file]) });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -280,7 +320,7 @@ router.post('/stage-hunk', async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     try { fs.unlinkSync(tmp); } catch (_) {}
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -297,7 +337,7 @@ router.post('/stage', async (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -316,7 +356,7 @@ router.post('/unstage', async (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -332,24 +372,31 @@ router.post('/discard', async (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
-router.post('/delete-file', async (req, res) => {
-  const { repoPath, file, isUntracked } = req.body;
+// Elimina un archivo o carpeta del disco y del índice git (sea rastreado o no)
+router.post('/delete-path', async (req, res) => {
+  const { repoPath, path: filePath } = req.body;
+  if (!filePath || typeof filePath !== 'string') {
+    return res.status(400).json({ error: 'Ruta inválida' });
+  }
   try {
-    const fullPath = path.join(repoPath, file);
-    if (isUntracked) {
-      if (fs.existsSync(fullPath)) {
-        fs.rmSync(fullPath, { recursive: true, force: true });
-      }
-    } else {
-      await git(repoPath).rm([file, '-f']);
+    const fullPath = path.resolve(repoPath, filePath);
+    const repoResolved = path.resolve(repoPath);
+    if (!fullPath.startsWith(repoResolved + path.sep) && fullPath !== repoResolved) {
+      return res.status(400).json({ error: 'Ruta fuera del repositorio' });
+    }
+    // Quitar del índice git si está rastreado (--ignore-unmatch silencia si no lo está)
+    await git(repoPath).raw(['rm', '-r', '--cached', '--force', '--ignore-unmatch', filePath]);
+    // Eliminar del disco
+    if (fs.existsSync(fullPath)) {
+      fs.rmSync(fullPath, { recursive: true, force: true });
     }
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -366,10 +413,10 @@ router.post('/commit', async (req, res) => {
       try {
         res.json({ success: true, result: await tryCommit() });
       } catch (e2) {
-        res.status(500).json({ error: e2.message });
+        handleGitError(res, e2);
       }
     } else {
-      res.status(500).json({ error: e.message });
+      handleGitError(res, e);
     }
   }
 });
@@ -380,7 +427,7 @@ router.post('/commit/revert', async (req, res) => {
     await git(repoPath).revert([hash, '--no-edit']);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -406,7 +453,9 @@ async function _getAheadCommits(g, remote, branch, isFirstPush) {
 
 router.post('/push', async (req, res) => {
   const { repoPath, remote = 'origin', branch, setUpstream = false, batched = false, batchSize = 20 } = req.body;
-  if (!branch) return res.status(400).json({ error: 'Nombre de rama vacío. Asegúrate de tener una rama activa antes de hacer push.' });
+  if (!branch || !isValidRefName(branch)) return res.status(400).json({ error: 'Nombre de rama inválido. Asegúrate de tener una rama activa antes de hacer push.' });
+  if (!isValidRefName(remote)) return res.status(400).json({ error: 'Nombre de remoto inválido.' });
+  
   const g = git(repoPath);
   try {
     await _configureHttpForPush(g);
@@ -449,15 +498,16 @@ router.post('/push', async (req, res) => {
       const remotes = await g.getRemotes(true);
       const origin  = remotes.find(r => r.name === remote);
       if (origin) remoteUrl = origin.refs.push;
-    } catch (e2) {
-      remoteUrl = `Error al leer: ${e2.message}`;
-    }
-    res.status(500).json({ error: `Falló el push. Error: ${e.message}. \n\n[Debug Info] URL del remote '${remote}' que se intentó usar: '${remoteUrl}'` });
+    } catch (_) {}
+    handleGitError(res, e, { debug: `URL del remote '${remote}': ${remoteUrl}` });
   }
 });
 
 router.post('/pull', async (req, res) => {
   const { repoPath, remote = 'origin', branch } = req.body;
+  if (branch && !isValidRefName(branch)) return res.status(400).json({ error: 'Nombre de rama inválido.' });
+  if (!isValidRefName(remote)) return res.status(400).json({ error: 'Nombre de remoto inválido.' });
+  
   const cfg = loadConfig();
   try {
     const opts = {};
@@ -465,7 +515,7 @@ router.post('/pull', async (req, res) => {
     if (cfg.autoStash)    opts['--autostash'] = null;
     res.json({ success: true, result: await git(repoPath).pull(remote, branch, opts) });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -475,12 +525,17 @@ router.post('/fetch', async (req, res) => {
     await git(repoPath).fetch(['--all', '--prune']);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
 router.post('/push-production', async (req, res) => {
   const { repoPath, productionBranch, mergeFrom, remote = 'origin' } = req.body;
+  if (!isValidRefName(productionBranch) || !isValidRefName(remote)) 
+    return res.status(400).json({ error: 'Parámetros inválidos' });
+  if (mergeFrom && !isValidRefName(mergeFrom))
+    return res.status(400).json({ error: 'Nombre de rama origen inválido' });
+
   const g = git(repoPath);
   let originalBranch = null;
   try {
@@ -502,9 +557,9 @@ router.post('/push-production', async (req, res) => {
       const remotes = await g.getRemotes(true);
       const origin  = remotes.find(r => r.name === remote);
       if (origin) remoteUrl = origin.refs.push;
-    } catch (e2) { remoteUrl = `Error al leer: ${e2.message}`; }
+    } catch (_) {}
     if (originalBranch) { try { await g.checkout(originalBranch); } catch (_) {} }
-    res.status(500).json({ error: `Falló el push. Error: ${e.message}. \n\n[Debug Info] URL del remote '${remote}' que se intentó usar: '${remoteUrl}'. \n MergeFrom (enviado): '${req.body.mergeFrom}', ProductionBranch (enviado): '${req.body.productionBranch}'` });
+    handleGitError(res, e, { debug: `Remote '${remote}': ${remoteUrl} | mergeFrom: '${req.body.mergeFrom}' | productionBranch: '${req.body.productionBranch}'` });
   }
 });
 
@@ -521,7 +576,7 @@ router.post('/config/set', async (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -531,7 +586,7 @@ router.post('/remote/add', async (req, res) => {
     await git(repoPath).addRemote(name, url);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -541,7 +596,7 @@ router.post('/remote/set-url', async (req, res) => {
     await git(repoPath).remote(['set-url', name, url]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -554,7 +609,7 @@ router.get('/gitignore', (req, res) => {
     const content = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
     res.json({ content });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -565,7 +620,7 @@ router.post('/gitignore', (req, res) => {
     fs.writeFileSync(filePath, content, 'utf8');
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -575,7 +630,7 @@ router.post('/untrack', async (req, res) => {
     await git(repoPath).raw(['rm', '--cached', '--', ...files]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -591,7 +646,7 @@ router.post('/reset', async (req, res) => {
     await git(repoPath).reset(args);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -599,24 +654,24 @@ router.post('/reset', async (req, res) => {
 
 router.post('/remote/delete', async (req, res) => {
   const { repoPath, name } = req.body;
-  if (!name || name.startsWith('-')) return res.status(400).json({ error: 'Nombre de remoto inválido' });
+  if (!isValidRefName(name)) return res.status(400).json({ error: 'Nombre de remoto inválido' });
   try {
     await git(repoPath).removeRemote(name);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
 router.post('/remote/rename', async (req, res) => {
   const { repoPath, oldName, newName } = req.body;
-  if (!oldName || oldName.startsWith('-')) return res.status(400).json({ error: 'Nombre de remoto inválido' });
-  if (!newName || newName.startsWith('-') || /\s/.test(newName)) return res.status(400).json({ error: 'Nombre nuevo inválido' });
+  if (!isValidRefName(oldName) || !isValidRefName(newName)) return res.status(400).json({ error: 'Nombre de remoto inválido' });
+  if (/\s/.test(newName)) return res.status(400).json({ error: 'El nuevo nombre no puede contener espacios' });
   try {
     await git(repoPath).raw(['remote', 'rename', oldName, newName]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -632,7 +687,7 @@ router.post('/checkout-conflict', async (req, res) => {
     await g.raw(['add', '--', file]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -640,23 +695,28 @@ router.post('/checkout-conflict', async (req, res) => {
 
 router.post('/open-file', (req, res) => {
   const { repoPath, file } = req.body;
-  // Normalizar y unir rutas de forma segura
   const normalizedRepo = path.normalize(repoPath);
   const fullPath = path.join(normalizedRepo, file);
   
   try {
     if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Archivo no encontrado' });
     
-    // Escapar comillas dobles para prevenir inyección en el comando shell
-    const escapedPath = fullPath.replace(/"/g, '\\"');
-    
-    if (process.platform === 'win32')      exec(`start "" "${escapedPath}"`);
-    else if (process.platform === 'darwin') exec(`open "${escapedPath}"`);
-    else                                    exec(`xdg-open "${escapedPath}"`);
+    // Verificación de Path Traversal adicional
+    if (!fullPath.startsWith(normalizedRepo)) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+
+    if (process.platform === 'win32') {
+      spawn('cmd', ['/c', 'start', '""', fullPath], { detached: true, stdio: 'ignore' }).unref();
+    } else if (process.platform === 'darwin') {
+      spawn('open', [fullPath], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      spawn('xdg-open', [fullPath], { detached: true, stdio: 'ignore' }).unref();
+    }
     
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 

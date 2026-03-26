@@ -137,7 +137,7 @@ export async function stageSelected() {
   const files = [..._selectedFiles.unstaged];
   if (!files.length) return;
   try {
-    await opPost('/repo/stage', { files }, `Stage de ${files.length} archivos…`);
+    await opPost('/repo/stage', { files }, 'Añadiendo al stage…');
     clearFileSelection('unstaged');
     await window.refreshStatus();
   } catch (e) { toast(e.message, 'error'); }
@@ -147,7 +147,7 @@ export async function unstageSelected() {
   const files = [..._selectedFiles.staged];
   if (!files.length) return;
   try {
-    await opPost('/repo/unstage', { files }, `Quitando ${files.length} archivos del stage…`);
+    await opPost('/repo/unstage', { files }, 'Quitando del stage…');
     clearFileSelection('staged');
     await window.refreshStatus();
   } catch (e) { toast(e.message, 'error'); }
@@ -158,7 +158,7 @@ export async function discardSelected() {
   if (!files.length) return;
   if (!confirm(`¿Descartar cambios en ${files.length} archivo(s)? Esta acción no se puede deshacer.`)) return;
   try {
-    await opPost('/repo/discard', { files }, `Descartando ${files.length} archivos…`);
+    await opPost('/repo/discard', { files }, 'Descartando cambios…');
     clearFileSelection('unstaged');
     await window.refreshStatus();
   } catch (e) { toast(e.message, 'error'); }
@@ -203,8 +203,8 @@ export async function fileDrop(event, to) {
   const files = _dragFiles;
   _dragFiles = []; _dragFrom = null;
   try {
-    if (to === 'staged') await opPost('/repo/stage',   { files }, `Añadiendo ${files.length > 1 ? files.length + ' archivos' : files[0]} al stage…`);
-    else                 await opPost('/repo/unstage', { files }, `Quitando ${files.length > 1 ? files.length + ' archivos' : files[0]} del stage…`);
+    if (to === 'staged') await opPost('/repo/stage',   { files }, 'Añadiendo al stage…');
+    else                 await opPost('/repo/unstage', { files }, 'Quitando del stage…');
     clearFileSelection();
     await window.refreshStatus();
   } catch (e) { toast(e.message, 'error'); }
@@ -229,12 +229,21 @@ export function fileCtxShow(event, path, listType, isUntracked) {
   _fileCtxData = { path, listType, isUntracked };
 
   let items = '';
-  if (listType === 'staged') {
+  if (listType === 'clean') {
+    items += `<div class="ctx-item" onclick="fileCtxAction('open')">↗ Abrir en editor</div>`;
+    items += `<div class="ctx-item" onclick="fileCtxAction('history')">📜 Historial del archivo</div>`;
+    items += `<div class="ctx-item" onclick="fileCtxAction('copy-path')">📋 Copiar ruta</div>`;
+    items += `<div class="ctx-sep"></div>`;
+    items += `<div class="ctx-item ctx-warn" onclick="fileCtxAction('untrack')">🚫 Quitar del tracking</div>`;
+    items += `<div class="ctx-item" onclick="fileCtxAction('gitignore-add')">➕ Añadir a .gitignore</div>`;
+    items += `<div class="ctx-item ctx-danger" onclick="fileCtxAction('delete')">🗑 Eliminar archivo</div>`;
+  } else if (listType === 'staged') {
     items += `<div class="ctx-item" onclick="fileCtxAction('diff')">🔍 Ver diff</div>`;
     items += `<div class="ctx-sep"></div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('unstage')">− Quitar del stage</div>`;
     items += `<div class="ctx-item ctx-warn" onclick="fileCtxAction('untrack')">🚫 Quitar del tracking</div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('gitignore-add')">➕ Añadir a .gitignore</div>`;
+    items += `<div class="ctx-item ctx-danger" onclick="fileCtxAction('delete')">🗑 Eliminar archivo</div>`;
     items += `<div class="ctx-sep"></div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('open')">↗ Abrir en editor</div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('history')">📜 Historial del archivo</div>`;
@@ -265,7 +274,7 @@ export function fileCtxAction(action) {
     case 'stage':      stageFile(d.path); break;
     case 'unstage':    unstageFile(d.path); break;
     case 'discard':    discardFile(d.path); break;
-    case 'delete':     removeFile(d.path, d.isUntracked); break;
+    case 'delete':     removeFile(d.path); break;
     case 'untrack':       untrackFile(d.path); break;
     case 'gitignore-add': openAddToGitignoreModal(d.path); break;
     case 'open':       openFileInEditor(d.path); break;
@@ -295,12 +304,23 @@ async function discardFile(file) {
   } catch (e) { toast(e.message, 'error'); }
 }
 
-async function removeFile(file, isUntracked) {
-  if (!confirm(`¿Estás seguro de que deseas ELIMINAR el archivo "${file}" del disco? Esta acción es permanente.`)) return;
+async function removeFile(file) {
+  if (!file) return;
+  if (!confirm(`¿Eliminar "${file}" del disco? Esta acción es permanente y no se puede deshacer.`)) return;
   try {
-    await opPost('/repo/delete-file', { file, isUntracked }, 'Eliminando archivo…');
+    await opPost('/repo/delete-path', { path: file }, 'Eliminando…');
     await window.refreshStatus();
-    toast('Archivo eliminado', 'info');
+    toast('Eliminado', 'info');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function removeFolder(folderPath) {
+  if (!folderPath) return;
+  if (!confirm(`¿Eliminar la carpeta "${folderPath}/" y TODO su contenido del disco?\nEsta acción es permanente y no se puede deshacer.`)) return;
+  try {
+    await opPost('/repo/delete-path', { path: folderPath }, 'Eliminando carpeta…');
+    await window.refreshStatus();
+    toast('Carpeta eliminada', 'info');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -380,7 +400,7 @@ function renderFileItem(f, listType, staged, displayName = null, indentPx = null
     ${isConflicted ? '' : staged
       ? `<button class="file-act" onclick="event.stopPropagation();unstageFile('${escAttr(f.path)}')" title="Quitar del stage">−</button>`
       : `<div class="file-acts">
-           <button class="file-act delete" onclick="event.stopPropagation();removeFile('${escAttr(f.path)}',${isUntracked})" title="Eliminar">🗑</button>
+           <button class="file-act delete" onclick="event.stopPropagation();removeFile('${escAttr(f.path)}')" title="Eliminar">🗑</button>
            ${!isUntracked ? `<button class="file-act discard" onclick="event.stopPropagation();discardFile('${escAttr(f.path)}')" title="Descartar">⟲</button>` : ''}
            <button class="file-act" onclick="event.stopPropagation();stageFile('${escAttr(f.path)}')" title="Stage">+</button>
          </div>`
@@ -494,6 +514,7 @@ export function folderCtxShow(event, folderPath, listType) {
     items += `<div class="ctx-item ctx-warn" onclick="folderCtxAction('discard')">⟲ Descartar cambios${countLabel}</div>`;
   }
   items += `<div class="ctx-item" onclick="folderCtxAction('gitignore-add')">➕ Añadir a .gitignore</div>`;
+  items += `<div class="ctx-item ctx-danger" onclick="folderCtxAction('delete')">🗑 Eliminar carpeta</div>`;
   items += `<div class="ctx-sep"></div>`;
   items += `<div class="ctx-item" onclick="folderCtxAction('copy-path')">📋 Copiar ruta</div>`;
 
@@ -509,21 +530,24 @@ export async function folderCtxAction(action) {
   switch (action) {
     case 'stage':
       if (!files.length) { toast('No hay archivos para agregar al stage', 'info'); return; }
-      try { await opPost('/repo/stage', { files }, `Stage de ${files.length} archivos…`); await window.refreshStatus(); } catch (e) { toast(e.message, 'error'); }
+      try { await opPost('/repo/stage', { files }, 'Añadiendo al stage…'); await window.refreshStatus(); } catch (e) { toast(e.message, 'error'); }
       break;
     case 'unstage':
       if (!files.length) { toast('No hay archivos en stage', 'info'); return; }
-      try { await opPost('/repo/unstage', { files }, `Quitando ${files.length} archivos del stage…`); await window.refreshStatus(); } catch (e) { toast(e.message, 'error'); }
+      try { await opPost('/repo/unstage', { files }, 'Quitando del stage…'); await window.refreshStatus(); } catch (e) { toast(e.message, 'error'); }
       break;
     case 'discard':
       if (!files.length) { toast('No hay cambios que descartar', 'info'); return; }
       if (!confirm(`¿Descartar cambios en ${files.length} archivo(s) de "${d.folderPath}/"? Esta acción no se puede deshacer.`)) return;
-      try { await opPost('/repo/discard', { files }, `Descartando ${files.length} archivos…`); await window.refreshStatus(); } catch (e) { toast(e.message, 'error'); }
+      try { await opPost('/repo/discard', { files }, 'Descartando cambios…'); await window.refreshStatus(); } catch (e) { toast(e.message, 'error'); }
       break;
     case 'untrack':
       if (!files.length) { toast('No hay archivos rastreados en esta carpeta', 'info'); return; }
       if (!confirm(`¿Quitar ${files.length} archivo(s) de "${d.folderPath}/" del tracking?\nNO se eliminarán del disco.`)) return;
-      try { await opPost('/repo/untrack', { files }, `Quitando del tracking…`); await window.refreshStatus(); toast(`${files.length} archivo(s) quitados del tracking ✓`, 'success'); } catch (e) { toast(e.message, 'error'); }
+      try { await opPost('/repo/untrack', { files }, 'Quitando del tracking…'); await window.refreshStatus(); toast(`${files.length} archivo(s) quitados del tracking ✓`, 'success'); } catch (e) { toast(e.message, 'error'); }
+      break;
+    case 'delete':
+      await removeFolder(d.folderPath);
       break;
     case 'gitignore-add':
       openAddToGitignoreModal(d.folderPath, true);
@@ -616,25 +640,91 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowRight') { e.preventDefault(); kbFolderToggle('right'); }
 });
 
+// ─── File filter ──────────────────────────────────────────────────────────────
+
+let _fileFilter = 'all';
+
+const _FILTER_TESTS = {
+  all:       ()        => true,
+  conflict:  (f, conf) => conf.includes(f.path),
+  modified:  (f)       => f.working_dir === 'M' || f.index === 'M',
+  untracked: (f)       => f.working_dir === '?',
+  added:     (f)       => f.index === 'A' || f.working_dir === 'A',
+  deleted:   (f)       => f.working_dir === 'D' || f.index === 'D',
+};
+
+export async function setFileFilter(type) {
+  _fileFilter = type;
+  const sel = document.getElementById('fileFilterSelect');
+  if (sel && sel.value !== type) sel.value = type;
+
+  if (state.status) renderStatus(state.status);
+}
+
+async function _appendCleanFiles() {
+  const list = document.getElementById('unstagedFiles');
+  if (!list) return;
+
+  list.insertAdjacentHTML('beforeend',
+    `<div class="files-clean-sep">Sin cambios</div>` +
+    `<div id="cleanFilesLoading" class="diff-hint" style="font-size:11px">Cargando…</div>`
+  );
+
+  try {
+    const files = await get('/repo/files/all');
+    const clean = files.filter(f => f.index === ' ' && f.working_dir === ' ');
+    document.getElementById('cleanFilesLoading')?.remove();
+    if (!clean.length) return;
+    list.insertAdjacentHTML('beforeend', clean.map(f => `
+      <div class="file-item"
+           title="${escAttr(f.path)}"
+           onclick="openFileInEditor('${escAttr(f.path)}')"
+           oncontextmenu="fileCtxShow(event,'${escAttr(f.path)}','clean',false)">
+        <span class="file-icon">${fileIcon(f.path)}</span>
+        <span class="file-status clean">·</span>
+        <span class="file-name">${escHtml(f.path)}</span>
+      </div>`).join(''));
+  } catch (e) {
+    document.getElementById('cleanFilesLoading')?.remove();
+    toast('No se pudo cargar la lista de archivos', 'error');
+  }
+}
+
+function _applyFilter(files, conflicted) {
+  const test = _FILTER_TESTS[_fileFilter];
+  return test ? files.filter(f => test(f, conflicted)) : files;
+}
+
 // ─── Render: Status ───────────────────────────────────────────────────────────
 
 export function renderStatus(status) {
   const allFiles      = status.files || [];
-  const stagedFiles   = allFiles.filter(f => f.index !== ' ' && f.index !== '?');
-  const unstagedFiles = allFiles.filter(f => f.working_dir !== ' ');
+  const conflicted    = status.conflicted || [];
+  const stagedFiles   = _applyFilter(allFiles.filter(f => f.index !== ' ' && f.index !== '?'), conflicted);
+  const unstagedFiles = _applyFilter(allFiles.filter(f => f.working_dir !== ' '),              conflicted);
 
-  setCount('stagedCount',   stagedFiles.length,   'badge');
-  setCount('unstagedCount', unstagedFiles.length, 'badge badge-warn');
+  const totalStaged   = allFiles.filter(f => f.index !== ' ' && f.index !== '?').length;
+  const totalUnstaged = allFiles.filter(f => f.working_dir !== ' ').length;
+
+  setCount('stagedCount',   totalStaged,   'badge');
+  setCount('unstagedCount', totalUnstaged, 'badge badge-warn');
   updateSelectionBars();
 
+  const _filterLabels = { conflict: 'en conflicto', modified: 'modificados', untracked: 'sin rastrear', added: 'añadidos', deleted: 'eliminados' };
+  const emptyMsg = _fileFilter === 'all'
+    ? null
+    : `Sin archivos ${_filterLabels[_fileFilter] || ''} en esta sección`;
+
   const renderList = (files, listType, staged) => {
-    if (!files.length) return empty('', staged ? 'Sin archivos en stage' : 'Sin cambios pendientes');
+    if (!files.length) return empty('', emptyMsg ?? (staged ? 'Sin archivos en stage' : 'Sin cambios pendientes'));
     if (_fileViewMode[listType] === 'tree') return renderTreeNode(buildFileTree(files), listType, staged, 0, '');
     return files.map(f => renderFileItem(f, listType, staged)).join('');
   };
 
   document.getElementById('stagedFiles').innerHTML   = renderList(stagedFiles,   'staged',   true);
   document.getElementById('unstagedFiles').innerHTML = renderList(unstagedFiles, 'unstaged', false);
+
+  if (_fileFilter === 'all-files') _appendCleanFiles();
 
   _updateViewToggleBtn('staged');
   _updateViewToggleBtn('unstaged');
@@ -803,7 +893,7 @@ export async function untrackSelected() {
   if (!files.length) return;
   if (!confirm(`¿Quitar ${files.length} archivo(s) del tracking de git?\nQuedarán como no rastreados pero NO se eliminarán del disco.`)) return;
   try {
-    await opPost('/repo/untrack', { files }, `Quitando ${files.length} archivos del tracking…`);
+    await opPost('/repo/untrack', { files }, 'Quitando del tracking…');
     clearFileSelection('staged');
     await window.refreshStatus();
     toast(`${files.length} archivo(s) quitados del tracking ✓`, 'success');
@@ -964,7 +1054,8 @@ window.discardSelected    = discardSelected;
 window.stageFile   = stageFile;
 window.unstageFile = unstageFile;
 window.discardFile = discardFile;
-window.removeFile  = removeFile;
+window.removeFile   = removeFile;
+window.removeFolder = removeFolder;
 window.openFileHistory     = openFileHistory;
 window.showFileHistoryDiff = showFileHistoryDiff;
 window.fhRowClick          = fhRowClick;
@@ -983,3 +1074,4 @@ window.confirmAddToGitignore   = confirmAddToGitignore;
 window.expandAllTree      = expandAllTree;
 window.collapseAllTree    = collapseAllTree;
 window.resolveConflictSide = resolveConflictSide;
+window.setFileFilter       = setFileFilter;

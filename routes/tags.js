@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { git } = require('../lib/git');
+const { handleGitError } = require('../lib/git-errors');
 
 /**
  * Valida que un nombre de referencia sea seguro.
@@ -29,7 +30,7 @@ router.get('/tags', async (req, res) => {
     const all = (tagList.all || []).map(t => ({ name: t, type: typeMap[t] || 'lightweight' }));
     res.json({ all, latest: tagList.latest });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -51,7 +52,7 @@ router.post('/tag/create', async (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -62,7 +63,7 @@ router.post('/tag/delete', async (req, res) => {
     await git(repoPath).tag(['-d', tagName]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -74,7 +75,7 @@ router.post('/tag/push', async (req, res) => {
     await git(repoPath).raw(['push', remote, tagName]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -86,7 +87,7 @@ router.post('/tag/delete-remote', async (req, res) => {
     await git(repoPath).raw(['push', remote, '--delete', tagName]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 

@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { git } = require('../lib/git');
+const { handleGitError } = require('../lib/git-errors');
 
 /**
  * Valida que un nombre de rama sea seguro y siga las reglas básicas de Git.
@@ -20,7 +21,7 @@ router.get('/branches', async (req, res) => {
   try {
     res.json(await git(repoPath).branch(['-a', '-v']));
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -47,7 +48,7 @@ router.get('/branches/tracking', async (req, res) => {
     }
     res.json(result);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -68,7 +69,7 @@ router.post('/branch/create', async (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -79,7 +80,7 @@ router.post('/branch/checkout', async (req, res) => {
     await git(repoPath).checkout(branchName);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -100,7 +101,7 @@ router.post('/branch/checkout-remote', async (req, res) => {
     await g.raw(['checkout', '-b', localName, '--track', remoteName]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -116,7 +117,7 @@ router.post('/branch/delete', async (req, res) => {
     await g.deleteLocalBranch(branchName, !!force);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -127,7 +128,7 @@ router.post('/branch/rename', async (req, res) => {
     await git(repoPath).raw(['branch', '-m', branchName, newName]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -139,7 +140,7 @@ router.post('/branch/delete-remote', async (req, res) => {
     await git(repoPath).raw(['push', remote, '--delete', branch]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -150,10 +151,9 @@ router.post('/branch/rebase', async (req, res) => {
     await git(repoPath).rebase([onto]);
     res.json({ success: true });
   } catch (e) {
-    const msg = e.message.includes('CONFLICT') || e.message.includes('REBASE') 
-      ? `Conflictos detectados durante el rebase sobre "${onto}". El repositorio está en modo rebase; resuelve los conflictos o usa --abort.` 
-      : e.message;
-    res.status(500).json({ error: msg });
+    if (e.message.includes('CONFLICT') || e.message.includes('REBASE'))
+      return res.status(500).json({ error: `Conflictos detectados durante el rebase sobre "${onto}". El repositorio está en modo rebase; resuelve los conflictos o usa --abort.` });
+    handleGitError(res, e);
   }
 });
 
@@ -165,10 +165,9 @@ router.post('/branch/pull-ff', async (req, res) => {
     await git(repoPath).raw(['fetch', remote, `${branch}:${branch}`]);
     res.json({ success: true });
   } catch (e) {
-    const msg = e.message.includes('non-fast-forward') || e.message.includes('rejected')
-      ? `No se puede actualizar "${branch}" automáticamente: la rama tiene cambios locales que divergen del remote. Haz checkout y luego pull.`
-      : e.message;
-    res.status(500).json({ error: msg });
+    if (e.message.includes('non-fast-forward') || e.message.includes('rejected'))
+      return res.status(500).json({ error: `No se puede actualizar "${branch}" automáticamente: la rama tiene cambios locales que divergen del remote. Haz checkout y luego pull.` });
+    handleGitError(res, e);
   }
 });
 
@@ -179,7 +178,7 @@ router.post('/branch/set-upstream', async (req, res) => {
     await git(repoPath).raw(['branch', `--set-upstream-to=${upstream}`, branchName]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -192,7 +191,7 @@ router.post('/branch/create-at', async (req, res) => {
     await git(repoPath).raw(['branch', branchName, hash]);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -219,10 +218,9 @@ router.post('/branch/merge-from-remote', async (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
-    const msg = e.message.includes('CONFLICT')
-      ? `Conflictos al integrar "${normalized}". Resuélvelos en la pestaña de cambios.`
-      : e.message;
-    res.status(500).json({ error: msg });
+    if (e.message.includes('CONFLICT'))
+      return res.status(500).json({ error: `Conflictos al integrar "${normalized}". Resuélvelos en la pestaña de cambios.` });
+    handleGitError(res, e);
   }
 });
 
@@ -265,8 +263,9 @@ router.post('/merge', async (req, res) => {
   try {
     res.json({ success: true, result: await git(repoPath).merge([sourceBranch]) });
   } catch (e) {
-    const msg = e.message.includes('CONFLICT') ? `Conflictos detectados al fusionar "${sourceBranch}". Resuélvelos en la pestaña de cambios.` : e.message;
-    res.status(500).json({ error: msg });
+    if (e.message.includes('CONFLICT'))
+      return res.status(500).json({ error: `Conflictos detectados al fusionar "${sourceBranch}". Resuélvelos en la pestaña de cambios.` });
+    handleGitError(res, e);
   }
 });
 
@@ -285,8 +284,9 @@ router.post('/cherry-pick', async (req, res) => {
     await g.raw(['cherry-pick', commitHash]);
     res.json({ success: true });
   } catch (e) {
-    const msg = e.message.includes('CONFLICT') ? `Conflictos detectados durante el cherry-pick. Resuélvelos manualmente.` : e.message;
-    res.status(500).json({ error: msg });
+    if (e.message.includes('CONFLICT'))
+      return res.status(500).json({ error: 'Conflictos detectados durante el cherry-pick. Resuélvelos manualmente.' });
+    handleGitError(res, e);
   }
 });
 
@@ -303,7 +303,7 @@ router.get('/branch/compare', async (req, res) => {
       commits: log.trim().split('\n').filter(Boolean),
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
@@ -317,7 +317,7 @@ router.get('/branches/merged', async (req, res) => {
       .filter(b => b && !protect.has(b));
     res.json({ branches });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleGitError(res, e);
   }
 });
 
