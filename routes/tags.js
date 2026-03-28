@@ -1,18 +1,9 @@
 const router = require('express').Router();
 const { git } = require('../lib/git');
 const { handleGitError } = require('../lib/git-errors');
+const { isValidRefName, validateRepoPath } = require('../lib/validation');
 
-/**
- * Valida que un nombre de referencia sea seguro.
- */
-function isValidRefName(name) {
-  if (!name || typeof name !== 'string') return false;
-  const invalidChars = /[\s\x00-\x1F\x7F~^:?*\[\\@]/;
-  if (invalidChars.test(name)) return false;
-  if (name.includes('..') || name.startsWith('/') || name.endsWith('/') || name.endsWith('.lock')) return false;
-  if (name.startsWith('-')) return false;
-  return true;
-}
+router.use(validateRepoPath);
 
 router.get('/tags', async (req, res) => {
   const { repoPath } = req.query;

@@ -117,6 +117,24 @@
 }
 .log-detail-diff.visible { display: block; }
 
+/* ─── Barra de panel (título + maximizar) ─────────────────────────────────── */
+.log-panel-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 8px 3px 12px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.log-panel-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--tx3);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
 .log-container {
   flex: 1;
   overflow: hidden;

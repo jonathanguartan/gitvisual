@@ -1,6 +1,9 @@
 const router = require('express').Router();
 const { git } = require('../lib/git');
 const { handleGitError } = require('../lib/git-errors');
+const { validateRepoPath } = require('../lib/validation');
+
+router.use(validateRepoPath);
 
 // Parsea el subject de git stash en sus partes:
 // "On branch feature/xxx: abc1234 Descripción" → { branch, description }

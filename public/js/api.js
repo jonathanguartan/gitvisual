@@ -23,19 +23,43 @@ export const post = (path, body = {}) => api('POST', path, { repoPath: state.rep
 
 // ─── Operation Overlay ───────────────────────────────────────────────────────
 
-let _opAbort = null;
-let _opCount = 0;  // operaciones concurrentes con overlay activo
+let _opAbort   = null;
+let _opCount   = 0;       // operaciones concurrentes con overlay activo
+let _opFocused = null;    // elemento enfocado antes de mostrar el overlay
+let _opSafetyTimer = null; // auto-cierre de seguridad
 
 export function showOp(label) {
+  // Guardar foco actual (solo si NO es el propio overlay o sus hijos)
+  const active = document.activeElement;
+  const overlay = document.getElementById('opOverlay');
+  _opFocused = (active && !overlay.contains(active)) ? active : null;
+
   document.getElementById('opLabel').textContent = label;
-  document.getElementById('opOverlay').classList.add('active');
+  overlay.classList.add('active');
+
+  // Safety: si el overlay lleva más de 45s visible, se cierra solo
+  clearTimeout(_opSafetyTimer);
+  _opSafetyTimer = setTimeout(() => forceHideOp(), 45_000);
 }
 
 export function hideOp() {
   // Solo ocultar si no hay otras operaciones en curso
   if (_opCount > 0) return;
+  forceHideOp();
+}
+
+export function forceHideOp() {
+  clearTimeout(_opSafetyTimer);
+  _opSafetyTimer = null;
+  _opCount = 0;
   document.getElementById('opOverlay').classList.remove('active');
   _opAbort = null;
+  // Restaurar foco — solo si el elemento sigue visible en el DOM
+  if (_opFocused && typeof _opFocused.focus === 'function'
+      && document.contains(_opFocused) && _opFocused.offsetParent !== null) {
+    _opFocused.focus();
+  }
+  _opFocused = null;
 }
 
 // Como `post` pero muestra el overlay si la operación tarda más de `threshold` ms.

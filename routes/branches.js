@@ -1,20 +1,9 @@
 const router = require('express').Router();
 const { git } = require('../lib/git');
 const { handleGitError } = require('../lib/git-errors');
+const { isValidRefName, validateRepoPath } = require('../lib/validation');
 
-/**
- * Valida que un nombre de rama sea seguro y siga las reglas básicas de Git.
- * Previene espacios, caracteres de control y secuencias peligrosas.
- */
-function isValidRefName(name) {
-  if (!name || typeof name !== 'string') return false;
-  // Reglas básicas: no espacios, no .., no caracteres de control, no empieza con -, etc.
-  const invalidChars = /[\s\x00-\x1F\x7F~^:?*\[\\@]/;
-  if (invalidChars.test(name)) return false;
-  if (name.includes('..') || name.startsWith('/') || name.endsWith('/') || name.endsWith('.lock')) return false;
-  if (name.startsWith('-')) return false; // Previene inyección de opciones
-  return true;
-}
+router.use(validateRepoPath);
 
 router.get('/branches', async (req, res) => {
   const { repoPath } = req.query;

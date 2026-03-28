@@ -1,11 +1,13 @@
 const router = require('express').Router();
 const { git } = require('../lib/git');
 const { handleGitError } = require('../lib/git-errors');
+const { validateRepoPath } = require('../lib/validation');
+
+router.use(validateRepoPath);
 
 // Scan for lost stashes (git fsck) and deleted branches (reflog)
 router.get('/recover/scan', async (req, res) => {
   const { repoPath } = req.query;
-  if (!repoPath) return res.status(400).json({ error: 'Ruta no proporcionada' });
 
   try {
     const g = git(repoPath);
@@ -41,7 +43,7 @@ router.get('/recover/scan', async (req, res) => {
       }
       stashes.sort((a, b) => b.timestamp - a.timestamp);
     } catch (e) {
-      console.warn('[recover/scan] fsck:', e.message);
+      require('../lib/logger').warn('[recover/scan] fsck', { msg: e.message });
     }
 
     // 2. Deleted branches via HEAD reflog
@@ -61,7 +63,7 @@ router.get('/recover/scan', async (req, res) => {
         }
       }
     } catch (e) {
-      console.warn('[recover/scan] reflog:', e.message);
+      require('../lib/logger').warn('[recover/scan] reflog', { msg: e.message });
     }
 
     res.json({ stashes, deletedBranches });

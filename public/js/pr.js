@@ -46,7 +46,7 @@ export async function loadPRs() {
 
 // ─── Pull Request ──────────────────────────────────────────────────────────────
 
-export async function openCreatePRModal() {
+export async function openCreatePRModal(headBranch = null) {
   if (!state.githubInfo) { toast('No se detectó repositorio remoto compatible (GitHub/Bitbucket/GitLab). Verifica el remote.', 'warn'); return; }
 
   const type = state.githubInfo.type;
@@ -78,8 +78,11 @@ export async function openCreatePRModal() {
   const mb = state.repoInfo?.defaultBranch || window.mainBranch || 'main';
   if (!baseCandidates.includes(mb)) baseCandidates.unshift(mb);
 
+  // headBranch puede venir del menú contextual (rama local o remota sin prefijo remoto)
+  const selectedHead = headBranch || state.currentBranch;
+
   document.getElementById('prHead').innerHTML = localBranches
-    .map(b => `<option value="${escAttr(b)}" ${b === state.currentBranch ? 'selected' : ''}>${escHtml(b)}</option>`)
+    .map(b => `<option value="${escAttr(b)}" ${b === selectedHead ? 'selected' : ''}>${escHtml(b)}</option>`)
     .join('');
 
   document.getElementById('prBase').innerHTML = baseCandidates

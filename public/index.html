@@ -86,6 +86,10 @@
         <span class="tb-icon">⟳</span>
         <span class="tb-label">Recuperar</span>
       </button>
+      <button class="tb-btn" id="tbReflog" onclick="openReflogModal()" title="Ver reflog del repositorio">
+        <span class="tb-icon">📋</span>
+        <span class="tb-label">Reflog</span>
+      </button>
     </div>
     <div class="tb-sep"></div>
     <div class="tb-group">
@@ -234,6 +238,9 @@
                   <option value="all-files">📁 Todos los archivos</option>
                 </optgroup>
               </select>
+              <input type="text" id="fileSearchInput" class="file-search-input"
+                     placeholder="Buscar archivo…"
+                     oninput="setFileSearch(this.value)" />
             </div>
             <div id="stagedSection" class="files-section">
               <div class="files-hdr">
@@ -243,6 +250,7 @@
                   <button id="btnStagedCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('staged')" title="Colapsar todo">⊖</button>
                   <button id="btnStagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('staged')" title="Vista árbol">⊞</button>
                   <button id="btnUnstageAll" class="btn btn-xs">Quitar todo</button>
+                  <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('stagedSection')" title="Maximizar">⤢</button>
                 </div>
               </div>
               <div id="stagedSelBar" class="sel-bar" style="display:none">
@@ -266,6 +274,7 @@
                   <button id="btnUnstagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('unstaged')" title="Vista árbol">⊞</button>
                   <button id="btnDiscardAll" class="btn btn-xs btn-secondary">Descartar todo</button>
                   <button id="btnStageAll" class="btn btn-xs btn-primary">Stage todo</button>
+                  <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('unstagedSection')" title="Maximizar">⤢</button>
                 </div>
               </div>
               <div id="unstagedSelBar" class="sel-bar" style="display:none">
@@ -279,12 +288,26 @@
                 ondragleave="fileDragLeave(event)"
                 ondrop="fileDrop(event,'unstaged')"></div>
             </div>
+
+            <!-- Sección Sin Cambios (solo visible en modo "Todos los archivos") -->
+            <div id="cleanSection" class="files-section" style="display:none">
+              <div class="files-hdr">
+                <span>Sin cambios <span id="cleanCount" class="badge badge-empty">0</span></span>
+                <div class="hdr-actions">
+                  <button id="btnCleanExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('clean')"   title="Expandir todo">⊕</button>
+                  <button id="btnCleanCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('clean')" title="Colapsar todo">⊖</button>
+                  <button id="btnCleanView" class="btn btn-xs btn-icon" onclick="toggleFileView('clean')" title="Vista árbol">⊞</button>
+                  <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('cleanSection')" title="Maximizar">⤢</button>
+                </div>
+              </div>
+              <div id="cleanFiles" class="file-list"></div>
+            </div>
           </div>
 
           <div class="resizer resizer-col" id="filesResizer"></div>
 
           <!-- Commit + Diff column -->
-          <div class="commit-col">
+          <div class="commit-col" id="commitCol">
             <div class="commit-box">
               <textarea id="commitMessage" class="commit-input" placeholder="Mensaje del commit…" rows="3"></textarea>
               <div class="commit-action-row">
@@ -303,8 +326,13 @@
                 <button id="btnCommit" class="btn btn-primary btn-flex">✓ Commit</button>
               </div>
             </div>
-            <div id="diffView" class="diff-view">
-              <div class="diff-hint">Selecciona un archivo para ver los cambios</div>
+            <div id="diffPanel" class="diff-panel">
+              <div class="diff-panel-hdr">
+                <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('diffPanel')" title="Maximizar diff">⤢</button>
+              </div>
+              <div id="diffView" class="diff-view">
+                <div class="diff-hint">Selecciona un archivo para ver los cambios</div>
+              </div>
             </div>
           </div>
         </div>
@@ -335,7 +363,11 @@
         </div>
         <div class="log-split">
           <!-- Lista de commits -->
-          <div class="log-left">
+          <div class="log-left" id="logLeft">
+            <div class="log-panel-bar">
+              <span class="log-panel-label">Commits</span>
+              <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('logLeft')" title="Maximizar">⤢</button>
+            </div>
             <div class="log-container">
               <div class="log-scroll-area">
                 <svg id="logGraph" class="log-graph-svg"></svg>
@@ -346,6 +378,10 @@
           <div class="resizer resizer-col" id="logResizer"></div>
           <!-- Panel de detalle del commit -->
           <div class="log-right" id="logDetail">
+            <div class="log-panel-bar">
+              <span class="log-panel-label">Detalle</span>
+              <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('logDetail')" title="Maximizar">⤢</button>
+            </div>
             <div class="log-detail-empty" id="logDetailEmpty">Selecciona un commit</div>
             <div id="logDetailContent" style="display:none">
               <div class="log-detail-hdr" id="logDetailHdr"></div>
@@ -999,7 +1035,13 @@
         </div>
       </div>
       <div class="fh-body">
-        <div id="fileHistoryList" class="fh-list"></div>
+        <div class="fh-list-panel">
+          <div class="fh-list-hdr">
+            <span class="fh-list-title">Commits</span>
+            <button class="btn btn-xs btn-icon" id="btnFhListToggle" onclick="toggleFhList()" title="Colapsar lista">◁</button>
+          </div>
+          <div id="fileHistoryList" class="fh-list"></div>
+        </div>
         <div id="fileHistoryDiff" class="fh-diff diff-view"></div>
       </div>
     </div>
@@ -1070,6 +1112,40 @@
       <div class="modal-ftr">
         <button class="btn btn-secondary" data-close="modalGitignore">Cancelar</button>
         <button class="btn btn-primary" onclick="saveGitignore()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Cherry-pick Modal ──────────────────────────────────────────────── -->
+  <div id="modalCherryPick" class="modal-bg">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-hdr">
+        <h2>Cherry-pick</h2>
+        <button class="btn btn-icon close-btn" data-close="modalCherryPick">✕</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+        <p style="margin:0;font-size:13px">Aplicar commit <code id="cpHashLabel"></code> a:</p>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label style="font-size:12px;color:var(--tx3)">Rama destino</label>
+          <select id="cpTargetBranch" class="input"></select>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalCherryPick">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmCherryPick()">Aplicar cherry-pick</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Reflog Modal ────────────────────────────────────────────────────── -->
+  <div id="modalReflog" class="modal-bg">
+    <div class="modal modal-reflog">
+      <div class="modal-hdr">
+        <h2>Reflog</h2>
+        <button class="btn btn-icon close-btn" data-close="modalReflog">✕</button>
+      </div>
+      <div class="modal-body" style="padding:0">
+        <div id="reflogList" class="reflog-list"></div>
       </div>
     </div>
   </div>

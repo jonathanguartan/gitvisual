@@ -2,7 +2,7 @@ import { state, tabs, activeTabId, saveSession } from './state.js';
 import { get, post, api } from './api.js';
 import { toast, openModal, escHtml, escAttr } from './utils.js';
 import { renderBranches, renderRepoInfo } from './branches.js';
-import { renderStatus } from './files.js';
+import { renderStatus, invalidateCleanCache } from './files.js';
 import { renderTags } from './tags.js';
 import { renderStashList } from './stash.js';
 import { startAutoFetch } from './sync.js';
@@ -128,6 +128,7 @@ export async function refreshStatus(tabId = activeTabId) {
     const status = await get('/repo/status');
     if (activeTabId !== tabId) return;
     state.status = status;
+    invalidateCleanCache();
     renderStatus(status);
   } catch (e) { console.warn('refreshStatus:', e.message); }
 }
@@ -264,15 +265,34 @@ async function loadWelcome() {
     const recent = cfg.recentRepos || [];
     const el     = document.getElementById('recentRepos');
 
-    if (recent.length === 0) return;
+    if (recent.length === 0) { el.innerHTML = ''; return; }
     el.innerHTML = `<div class="recent-lbl">Repositorios recientes</div>` +
       recent.map(r => `
-        <button class="recent-item" onclick="loadRepo('${escAttr(r)}')">
-          <span>📁</span>
-          <span class="recent-item-path">${escHtml(r)}</span>
-        </button>
+        <div class="recent-item-row">
+          <button class="recent-item" onclick="loadRepo('${escAttr(r)}')">
+            <span>📁</span>
+            <span class="recent-item-path">${escHtml(r)}</span>
+          </button>
+          <button class="recent-item-remove" onclick="removeRecentRepo('${escAttr(r)}')" title="Quitar de recientes">✕</button>
+        </div>
       `).join('');
   } catch (_) {}
+}
+
+async function removeRecentRepo(repoPath) {
+  try {
+    const cfg = await api('GET', '/config');
+    const recent = (cfg.recentRepos || []).filter(r => r !== repoPath);
+    await api('POST', '/config/save', { recentRepos: recent });
+
+    // Cerrar la pestaña abierta con esta ruta, si existe
+    const openTab = tabs.find(t => t.repoPath && t.repoPath.toLowerCase() === repoPath.toLowerCase());
+    if (openTab) window.closeRepoTab(openTab.id);
+
+    loadWelcome();
+  } catch (e) {
+    toast(`Error: ${e.message}`, 'error');
+  }
 }
 
 export function showWelcome() {
@@ -306,6 +326,7 @@ document.addEventListener('visibilitychange', () => {
 // ─── Window assignments for HTML onclick handlers ────────────────────────────
 
 window.loadRepo         = loadRepo;
+window.removeRecentRepo = removeRecentRepo;
 window.refreshAll       = refreshAll;
 window.refreshInfo      = refreshInfo;
 window.refreshStatus    = refreshStatus;

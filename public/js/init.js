@@ -10,6 +10,8 @@ import './branches.js';
 import './log.js';
 import './tags.js';
 import './stash.js';
+import './cherrypick.js';
+import './reflog.js';
 import './commit.js';
 import './sync.js';
 import './pr.js';
@@ -18,13 +20,13 @@ import './repo.js';
 import './tabs.js';
 import './panels.js';
 
-import { hideOp, opPost } from './api.js';
+import { hideOp, forceHideOp, opPost } from './api.js';
 import { state } from './state.js';
 import { toast } from './utils.js';
 import { loadLog } from './log.js';
 import { loadPRs } from './pr.js';
 import { switchToPanel } from './panels.js';
-import { restoreSession } from './state.js';
+import { restoreSession, tabs, activeTabId } from './state.js';
 
 // ─── Staging helpers (stageAll / unstageAll / discardAll) ─────────────────────
 
@@ -70,7 +72,7 @@ window.state = state;
 document.getElementById('btnCancelOp').addEventListener('click', () => {
   const abort = window._getOpAbort ? window._getOpAbort() : null;
   if (abort) abort.abort();
-  hideOp();
+  forceHideOp(); // fuerza el cierre sin importar _opCount
 });
 
 document.getElementById('btnNewTab').addEventListener('click', () => window.newRepoTab());
@@ -187,6 +189,8 @@ document.querySelectorAll('.side-nav-btn').forEach(btn => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
+    // Si el overlay está visible, Escape lo cierra y restaura el estado
+    if (document.getElementById('opOverlay')?.classList.contains('active')) forceHideOp();
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && document.activeElement.id === 'commitMessage') {
     window.doCommit();
@@ -279,6 +283,30 @@ function hideShortcutsOverlay() {
 }
 window.showShortcutsOverlay = showShortcutsOverlay;
 window.hideShortcutsOverlay = hideShortcutsOverlay;
+
+// ─── Recuperación de foco al volver a la ventana ──────────────────────────────
+// Si el overlay quedó activo mientras la ventana estaba en segundo plano,
+// y no hay operaciones en curso, se cierra automáticamente al regresar.
+window.addEventListener('focus', () => {
+  const overlay = document.getElementById('opOverlay');
+  if (overlay?.classList.contains('active') && window._getOpAbort?.() === null) {
+    forceHideOp();
+  }
+});
+
+// ─── Guardar sesión al cerrar la ventana ──────────────────────────────────────
+// sendBeacon garantiza que la petición se complete aunque la página se esté cerrando
+
+window.addEventListener('pagehide', () => {
+  try {
+    const openTabs = tabs.filter(t => t.repoPath).map(t => ({
+      repoPath: t.repoPath,
+      active:   t.id === activeTabId,
+    }));
+    const blob = new Blob([JSON.stringify({ openTabs })], { type: 'application/json' });
+    navigator.sendBeacon('/api/config/tabs', blob);
+  } catch (_) {}
+});
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 

@@ -198,6 +198,30 @@
 }
 .recent-item-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 
+.recent-item-row { display: flex; align-items: center; gap: 6px; }
+.recent-item-row .recent-item { flex: 1; min-width: 0; }
+.recent-item-remove {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  color: var(--tx3);
+  cursor: pointer;
+  font-size: 12px;
+  transition: background .15s, color .15s, border-color .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.recent-item-remove:hover {
+  background: rgba(243,139,168,.15);
+  border-color: rgba(243,139,168,.3);
+  color: #f38ba8;
+}
+
 /* ─── App Layout ────────────────────────────────────────────── */
 .app-layout {
   display: flex;
