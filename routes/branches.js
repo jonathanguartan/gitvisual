@@ -8,7 +8,21 @@ router.use(validateRepoPath);
 router.get('/branches', async (req, res) => {
   const { repoPath } = req.query;
   try {
-    res.json(await git(repoPath).branch(['-a', '-v']));
+    const result = await git(repoPath).branch(['-a', '-v']);
+    // Repo sin commits: git branch devuelve vacío aunque HEAD apunte a una rama unborn.
+    // Detectamos la rama actual via symbolic-ref y la inyectamos como entrada virtual.
+    if (Object.keys(result.branches).length === 0) {
+      try {
+        const headRef = await git(repoPath).raw(['symbolic-ref', '--short', 'HEAD']);
+        const branchName = headRef.trim();
+        if (branchName) {
+          result.branches[branchName] = { name: branchName, commit: '', label: '(sin commits aún)', current: true };
+          result.all     = [branchName];
+          result.current = branchName;
+        }
+      } catch (_) {}
+    }
+    res.json(result);
   } catch (e) {
     handleGitError(res, e);
   }
