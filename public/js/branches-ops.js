@@ -309,7 +309,26 @@ export function openNewBranchModal(fromBranchName = '', suggestedNewBranchName =
   const localBranches  = allBranches.filter(b => !b.name.startsWith('remotes/'));
   const remoteBranches = allBranches.filter(b => b.name.startsWith('remotes/'));
 
-  let optionsHtml = `<option value="">Crear desde HEAD (primer rama)</option>`;
+  // Detectar la rama principal del repositorio
+  const defaultBranch = state.repoInfo?.defaultBranch || window.mainBranch || '';
+  let mainOptionValue = '';
+  let mainOptionLabel = 'Desde HEAD actual';
+
+  if (defaultBranch) {
+    const localMain  = localBranches.find(b => b.name === defaultBranch);
+    const remoteMain = remoteBranches.find(b => b.name.endsWith('/' + defaultBranch));
+    if (localMain) {
+      mainOptionValue = localMain.name;
+      mainOptionLabel = `${defaultBranch} (rama principal)`;
+    } else if (remoteMain) {
+      mainOptionValue = remoteMain.name;
+      mainOptionLabel = `${defaultBranch} (rama principal)`;
+    } else {
+      mainOptionLabel = `${defaultBranch} (rama principal)`;
+    }
+  }
+
+  let optionsHtml = `<option value="${escAttr(mainOptionValue)}">${escHtml(mainOptionLabel)}</option>`;
 
   if (localBranches.length > 0) {
     optionsHtml += `<optgroup label="Ramas Locales">`;
