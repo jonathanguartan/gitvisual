@@ -162,10 +162,14 @@ router.post('/branch/rebase', async (req, res) => {
 
 // Actualiza una rama local desde su remota sin hacer checkout (fast-forward only)
 router.post('/branch/pull-ff', async (req, res) => {
-  const { repoPath, branch, remote = 'origin' } = req.body;
+  const { repoPath, branch, remote = 'origin', remoteBranchName } = req.body;
   if (!isValidRefName(branch)) return res.status(400).json({ error: 'Nombre de rama inválido' });
+  if (remoteBranchName && !isValidRefName(remoteBranchName)) return res.status(400).json({ error: 'Nombre de rama remota inválido' });
+  // Si se indica una rama remota distinta: git fetch origin other:local
+  // Si no: git fetch origin feature:feature (misma rama)
+  const refSpec = remoteBranchName ? `${remoteBranchName}:${branch}` : `${branch}:${branch}`;
   try {
-    await git(repoPath).raw(['fetch', remote, `${branch}:${branch}`]);
+    await git(repoPath).raw(['fetch', remote, refSpec]);
     res.json({ success: true });
   } catch (e) {
     if (e.message.includes('non-fast-forward') || e.message.includes('rejected'))

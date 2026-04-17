@@ -28,7 +28,7 @@
     "nodemon": "^3.0.2"
   },
   "build": {
-    "appId": "com.gitvisual.manager",
+    "appId": "GitVisual",
     "productName": "Git Visual Manager",
     "extraMetadata": {
       "main": "electron/main.js"

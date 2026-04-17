@@ -175,18 +175,35 @@ export function openPullFromModal(localBranch, trackedUpstream) {
 }
 
 export async function confirmPullFrom() {
+  const localBranch  = document.getElementById('pullFromLocalBranch').textContent;
   const remoteBranch = document.getElementById('pullFromRemoteBranch').value;
   const strategy     = document.getElementById('pullFromStrategy').value;
   if (!remoteBranch) { toast('Selecciona una rama remota', 'warn'); return; }
   closeModal('modalPullFrom');
+
+  // Si la rama destino no es la activa, solo se puede hacer fast-forward sin checkout.
+  // remoteBranch tiene formato "origin/main" → remote="origin", remoteBranchName="main"
+  if (localBranch && localBranch !== state.currentBranch) {
+    const [remote, ...rest] = remoteBranch.split('/');
+    const remoteBranchName  = rest.join('/');
+    await pullBranchFF(localBranch, remote, remoteBranchName);
+    return;
+  }
+
   await mergeFromRemote(remoteBranch, strategy);
 }
 
-export async function pullBranchFF(branch, upstream) {
+// upstream puede ser "origin/main" (formato legacy desde badge de tracking)
+// o bien se pasan remote y remoteBranchName separados (desde confirmPullFrom)
+export async function pullBranchFF(branch, upstream, remoteBranchName = null) {
   if (!upstream) { toast('Esta rama no tiene remote asociado', 'warn'); return; }
-  const remote = upstream.split('/')[0];
+  const remote = typeof upstream === 'string' && !remoteBranchName
+    ? upstream.split('/')[0]
+    : upstream;
+  const body = { branch, remote };
+  if (remoteBranchName) body.remoteBranchName = remoteBranchName;
   try {
-    await opPost('/repo/branch/pull-ff', { branch, remote }, `Actualizando "${branch}"…`);
+    await opPost('/repo/branch/pull-ff', body, `Actualizando "${branch}"…`);
     emit('repo:refresh-branches');
     toast(`Rama "${branch}" actualizada ✓`, 'success');
   } catch (e) { toast(e.message, 'error'); }
@@ -442,9 +459,11 @@ export async function confirmSetUpstream(localBranch) {
 export async function openCreateBranchAtModal(hash) {
   const name = prompt(`Nombre para la nueva rama (desde ${hash.slice(0,7)}):`);
   if (!name?.trim()) return;
-  post('/repo/branch/create-at', { branchName: name.trim(), hash })
-    .then(() => { emit('repo:refresh-branches'); toast(`Rama "${name.trim()}" creada ✓`, 'success'); })
-    .catch(e => toast(e.message, 'error'));
+  try {
+    await post('/repo/branch/create-at', { branchName: name.trim(), hash });
+    emit('repo:refresh-branches');
+    toast(`Rama "${name.trim()}" creada ✓`, 'success');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 // ─── Compare ──────────────────────────────────────────────────────────────────
