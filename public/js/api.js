@@ -1,10 +1,22 @@
 import { state } from './state.js';
 
+// ─── Per-tab request cancellation ────────────────────────────────────────────
+
+let _tabAbort = null;  // AbortController for background (non-overlay) requests
+
+/** Called by tabs.js on every tab switch. Cancels in-flight background requests. */
+export function switchTabSignal() {
+  if (_tabAbort) _tabAbort.abort();
+  _tabAbort = new AbortController();
+  return _tabAbort.signal;
+}
+
 // ─── API helpers ──────────────────────────────────────────────────────────────
 
-async function api(method, path, body) {
+async function api(method, path, body, signal) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
+  if (signal) opts.signal = signal;
   const res = await fetch(`/api${path}`, opts);
   const ct  = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) {
@@ -17,7 +29,7 @@ async function api(method, path, body) {
 
 export const get  = (path, params = {}) => {
   const q = new URLSearchParams({ ...params, repoPath: state.repoPath });
-  return api('GET', `${path}?${q}`);
+  return api('GET', `${path}?${q}`, null, _tabAbort?.signal);
 };
 export const post = (path, body = {}) => api('POST', path, { repoPath: state.repoPath, ...body });
 

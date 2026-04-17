@@ -222,6 +222,36 @@
   color: #f38ba8;
 }
 
+/* ─── Status Bar ────────────────────────────────────────────── */
+.status-bar {
+  height: 22px;
+  background: var(--bg0);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 0;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--tx3);
+  overflow: hidden;
+}
+.sb-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  height: 100%;
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+}
+.sb-item:first-child { border-left: none; }
+.sb-spacer { flex: 1; }
+.sb-branch { color: var(--blue); font-weight: 600; }
+.sb-ahead  { color: var(--green); }
+.sb-behind { color: var(--yellow); }
+.sb-path   { color: var(--tx3); font-family: monospace; font-size: 10px; border-right: none; }
+
 /* ─── App Layout ────────────────────────────────────────────── */
 .app-layout {
   display: flex;
@@ -514,3 +544,12 @@
 /* Tab panes */
 .tab-pane { display: none; flex: 1; min-height: 0; overflow: hidden; flex-direction: column; }
 .tab-pane.active { display: flex; }
+
+.tag-remote-badge {
+  font-size: 11px;
+  opacity: .75;
+  flex-shrink: 0;
+  cursor: default;
+}
+.tag-remote-yes { color: var(--teal, #94e2d5); }
+.tag-remote-no  { color: var(--yellow, #f9e2af); }

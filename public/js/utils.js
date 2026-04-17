@@ -55,31 +55,34 @@ export function copyToClipboard(text) {
 
 // ─── Shared context menu helpers ──────────────────────────────────────────────
 
-export function showCtxMenu(id, event, items) {
-  closeAllCtxMenus();
-  const menu = document.getElementById(id);
-  menu.innerHTML = items;
-
-  // Auto-split "icon text" → <span.ctx-icon> + <span.ctx-label> for cleaner layout
-  menu.querySelectorAll('.ctx-item:not(.ctx-header)').forEach(el => {
-    if (el.children.length > 0) return; // already structured
-    const text = el.textContent;
-    const m = text.match(/^(\S{1,4})\s(.+)/s);
-    if (m) el.innerHTML = `<span class="ctx-icon" aria-hidden="true">${escHtml(m[1])}</span><span class="ctx-label">${escHtml(m[2])}</span>`;
-  });
-
-  // Position
-  menu.style.left = event.clientX + 'px';
-  menu.style.top  = event.clientY + 'px';
-  menu.style.display = 'block';
-  const rect = menu.getBoundingClientRect();
-  if (rect.right  > window.innerWidth)  menu.style.left = (event.clientX - rect.width)  + 'px';
-  if (rect.bottom > window.innerHeight) menu.style.top  = (event.clientY - rect.height) + 'px';
-  requestAnimationFrame(() => document.addEventListener('click', closeAllCtxMenus, { once: true }));
-}
-
 export function closeAllCtxMenus() {
   document.querySelectorAll('.ctx-menu').forEach(m => m.style.display = 'none');
+}
+
+// ─── Panel Header HTML builder (for dynamically generated headers) ────────────
+export function panelHdrHTML(title, actions = '') {
+  return `<div class="panel-hdr">
+    <span class="panel-hdr-title">${title}</span>
+    ${actions ? `<div class="panel-hdr-actions">${actions}</div>` : ''}
+  </div>`;
+}
+
+// ─── Function utilities ───────────────────────────────────────────────────────
+
+export function debounce(fn, ms) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), ms);
+  };
+}
+
+export function throttle(fn, ms) {
+  let last = 0;
+  return function(...args) {
+    const now = Date.now();
+    if (now - last >= ms) { last = now; fn.apply(this, args); }
+  };
 }
 
 // ─── Window assignments for HTML onclick handlers ────────────────────────────
@@ -89,3 +92,4 @@ window.openModal         = openModal;
 window.closeModal        = closeModal;
 window.copyToClipboard   = copyToClipboard;
 window.closeAllCtxMenus  = closeAllCtxMenus;
+window.panelHdrHTML      = panelHdrHTML;

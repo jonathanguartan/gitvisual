@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "electron": "electron electron/main.js",
     "electron:dev": "nodemon --watch server.js --watch electron/main.js --exec \"electron electron/main.js\"",
+    "dist": "electron-builder --win",
     "test": "node tests/lib/validation.test.js && node tests/lib/git-errors.test.js && node tests/lib/config.test.js",
     "test:validation": "node tests/lib/validation.test.js",
     "test:errors": "node tests/lib/git-errors.test.js",
@@ -23,6 +24,53 @@
   },
   "devDependencies": {
     "electron": "^41.0.3",
+    "electron-builder": "^25.1.8",
     "nodemon": "^3.0.2"
+  },
+  "build": {
+    "appId": "com.gitvisual.manager",
+    "productName": "Git Visual Manager",
+    "extraMetadata": {
+      "main": "electron/main.js"
+    },
+    "files": [
+      "server.js",
+      "routes/**/*",
+      "lib/**/*",
+      "public/**/*",
+      "electron/**/*",
+      "!electron/icons/README.md",
+      "!tests/**",
+      "!.git/**",
+      "!app-config.json",
+      "!app-config.json.bak"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/icons/icon256.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Git Visual Manager"
+    },
+    "portable": {
+      "artifactName": "GitVisualManager-portable.exe"
+    }
   }
 }

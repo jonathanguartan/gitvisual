@@ -324,4 +324,20 @@ router.get('/branches/merged', async (req, res) => {
   }
 });
 
+// Squash de los últimos N commits en uno solo
+router.post('/branch/squash', async (req, res) => {
+  const { repoPath, count, message } = req.body;
+  const n = parseInt(count);
+  if (!n || n < 2) return res.status(400).json({ error: 'Selecciona al menos 2 commits para hacer squash' });
+  if (!message?.trim()) return res.status(400).json({ error: 'El mensaje del commit no puede estar vacío' });
+  try {
+    const g = git(repoPath);
+    await g.raw(['reset', '--soft', `HEAD~${n}`]);
+    await g.commit(message.trim());
+    res.json({ success: true });
+  } catch (e) {
+    handleGitError(res, e);
+  }
+});
+
 module.exports = router;

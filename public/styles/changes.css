@@ -26,17 +26,6 @@
 }
 .files-section + .files-section { border-top: 1px solid var(--border); }
 
-.files-hdr {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 10px;
-  background: var(--bg1);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--tx3);
-  flex-shrink: 0;
-}
 
 .file-list { overflow-y: auto; flex: 1; }
 
@@ -112,6 +101,15 @@
 .file-act.discard:hover { background: var(--peach); color: #1e1e2e; }
 .file-act.delete:hover { background: var(--red); color: #1e1e2e; }
 
+.file-checkbox {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: var(--blue);
+  margin: 0;
+}
+
 /* Commit column */
 .commit-col {
   flex: 1;
@@ -134,7 +132,8 @@
   border-radius: var(--r);
   padding: 7px 10px;
   color: var(--tx0);
-  resize: none;
+  resize: vertical;
+  max-height: 220px;
   margin-bottom: 8px;
   transition: border-color .15s, box-shadow .15s;
   line-height: 1.5;
@@ -373,13 +372,36 @@
   flex: 1;
   min-height: 0;
 }
-.diff-panel-hdr {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding: 2px 6px;
-  background: var(--bg1);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
 .diff-panel.panel-maximized .diff-view { flex: 1; min-height: 0; overflow: auto; }
+.hunk-nav-btns { display: flex; gap: 2px; margin-right: auto; }
+
+/* ─── Diff Search Bar ────────────────────────────────────── */
+.diff-search-bar {
+  position: fixed;
+  top: 48px;
+  right: 16px;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 4px 6px;
+  box-shadow: var(--shadow-sm);
+}
+.diff-search-input {
+  width: 200px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--tx0);
+  padding: 3px 8px;
+  font-size: 12px;
+}
+.diff-search-input:focus { outline: none; border-color: var(--blue); }
+.diff-search-count { font-size: 11px; color: var(--tx3); min-width: 40px; text-align: center; }
+
+/* Highlight matches in diff */
+.diff-match-line { background: rgba(249,226,175,.12) !important; }
+.diff-match-line.diff-match-current { background: rgba(249,226,175,.35) !important; outline: 1px solid var(--yellow); }

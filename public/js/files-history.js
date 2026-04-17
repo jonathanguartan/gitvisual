@@ -1,42 +1,65 @@
+import { defineList, getList } from './gvm/gvm-lists.js';
 import { get } from './api.js';
 import { escHtml, escAttr, relTime, toast, openModal, spinner } from './utils.js';
-import { renderDiff, renderDiffSplit, getDiffMode, toggleDiffMode, syncSplitPanes } from './diff.js';
+import { renderDiff, renderDiffSplit, getDiffMode } from './diff.js';
+import { defineEditor, getEditor } from './gvm/gvm-editors.js';
 
-let _fhSelected      = [];
-let _fhFilePath      = null;
+let _fhSelected   = [];   // up to 2 selected hashes
+let _fhFilePath   = null;
+let _fhAllCommits = [];   // full list for ordering in diff comparisons
+
 let _fhMaximized     = false;
 let _fhListCollapsed = false;
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+
+function _renderFhItem(c) {
+  const pos = _fhSelected.indexOf(c.hash);
+  let selClass = '';
+  if (pos !== -1) {
+    if (_fhSelected.length === 1) {
+      selClass = ' active';
+    } else {
+      const sorted = _fhSelected.slice().sort(
+        (a, b) => _fhAllCommits.findIndex(x => x.hash === b) - _fhAllCommits.findIndex(x => x.hash === a)
+      );
+      selClass = c.hash === sorted[0] ? ' fh-sel-from' : ' fh-sel-to';
+    }
+  }
+  return `<div class="fh-row${selClass}" data-hash="${escAttr(c.hash)}">
+    <div class="fh-row-meta">
+      <span class="fh-row-hash">${escHtml(c.hash.slice(0, 7))}</span>
+      <span>${escHtml(c.author_name)}</span>
+      <span>${relTime(c.date)}</span>
+    </div>
+    <div class="fh-row-msg">${escHtml(c.message)}</div>
+  </div>`;
+}
 
 // ─── Open File History ────────────────────────────────────────────────────────
 
 export async function openFileHistory(filePath) {
-  _fhSelected = [];
-  _fhFilePath  = filePath;
+  _fhSelected   = [];
+  _fhFilePath   = filePath;
+  _fhAllCommits = [];
+
   document.getElementById('fileHistoryName').textContent = filePath;
   document.getElementById('fileHistoryList').innerHTML   = spinner();
-  document.getElementById('fileHistoryDiff').innerHTML   = '<div class="diff-hint">Selecciona un commit para ver sus cambios.<br><span style="color:var(--tx3)">Selecciona dos para comparar entre ellos.</span></div>';
+  getEditor('fileHistoryDiff')?.setHint('Selecciona un commit para ver sus cambios.<br><span style="color:var(--tx3)">Selecciona dos para comparar entre ellos.</span>');
   document.getElementById('fhSearch').value = '';
   _resetFhMaximize();
   _resetFhList();
   openModal('modalFileHistory');
+
   try {
     const data    = await get('/repo/log', { file: filePath, limit: '200' });
     const commits = data.all || [];
-    if (commits.length === 0) {
-      document.getElementById('fileHistoryList').innerHTML = '<div class="recover-empty">Sin historial para este archivo.</div>';
-      return;
-    }
-    document.getElementById('fileHistoryList').innerHTML = commits.map(c => `
-      <div class="fh-row" data-hash="${escAttr(c.hash)}" onclick="fhRowClick('${escAttr(c.hash)}')">
-        <div class="fh-row-meta">
-          <span class="fh-row-hash">${escHtml(c.hash.slice(0, 7))}</span>
-          <span>${escHtml(c.author_name)}</span>
-          <span>${relTime(c.date)}</span>
-        </div>
-        <div class="fh-row-msg">${escHtml(c.message)}</div>
-      </div>`).join('');
+    _fhAllCommits = commits;
+    getList('fileHistoryList')?.setItems(commits);
   } catch (e) { toast(e.message, 'error'); }
 }
+
+// ─── UI state ─────────────────────────────────────────────────────────────────
 
 function _resetFhMaximize() {
   _fhMaximized = false;
@@ -69,12 +92,20 @@ export function toggleFhMaximize() {
   if (btn) { btn.textContent = _fhMaximized ? '⊡' : '⛶'; btn.title = _fhMaximized ? 'Restaurar' : 'Maximizar'; }
 }
 
+// ─── Search filter ────────────────────────────────────────────────────────────
+
 export function filterFileHistory(query) {
   const q = query.toLowerCase().trim();
-  document.querySelectorAll('#fileHistoryList .fh-row').forEach(row => {
-    row.style.display = !q || row.textContent.toLowerCase().includes(q) ? '' : 'none';
-  });
+  const filtered = q
+    ? _fhAllCommits.filter(c =>
+        c.message.toLowerCase().includes(q) ||
+        c.author_name.toLowerCase().includes(q) ||
+        c.hash.startsWith(q))
+    : _fhAllCommits;
+  getList('fileHistoryList')?.setItems(filtered);
 }
+
+// ─── Row selection (up to 2 commits) ─────────────────────────────────────────
 
 export function fhRowClick(hash) {
   const idx = _fhSelected.indexOf(hash);
@@ -84,66 +115,103 @@ export function fhRowClick(hash) {
     if (_fhSelected.length >= 2) _fhSelected.shift();
     _fhSelected.push(hash);
   }
-  _applyFhRowStyles();
+  getList('fileHistoryList')?.refresh();
   _updateFhDiff();
 }
 
-function _applyFhRowStyles() {
-  const allHashes = [...document.querySelectorAll('.fh-row')].map(r => r.dataset.hash);
-  const sorted    = _fhSelected.slice().sort((a, b) => allHashes.indexOf(b) - allHashes.indexOf(a));
-  document.querySelectorAll('.fh-row').forEach(r => {
-    r.classList.remove('active', 'fh-sel-from', 'fh-sel-to');
-    const si = sorted.indexOf(r.dataset.hash);
-    if (si === 0) r.classList.add(_fhSelected.length === 1 ? 'active' : 'fh-sel-from');
-    else if (si === 1) r.classList.add('fh-sel-to');
-  });
-}
-
-function _fhDiffModeBtn() {
-  const isSplit = getDiffMode() === 'split';
-  return `<button class="btn btn-xs diff-mode-btn" onclick="toggleFhDiffMode()" title="${isSplit ? 'Vista unificada' : 'Vista lado a lado'}">${isSplit ? '⊟' : '⊞'}</button>`;
-}
-
-function _renderFhContent(diff) {
-  return getDiffMode() === 'split'
-    ? renderDiffSplit(diff, _fhFilePath)
-    : renderDiff(diff, _fhFilePath);
-}
+// ─── Diff ─────────────────────────────────────────────────────────────────────
 
 async function _updateFhDiff() {
-  const diffEl = document.getElementById('fileHistoryDiff');
+  const editor = getEditor('fileHistoryDiff');
   if (!_fhSelected.length) {
-    diffEl.innerHTML = '<div class="diff-hint">Selecciona un commit para ver sus cambios.<br><span style="color:var(--tx3)">Selecciona dos para comparar entre ellos.</span></div>';
+    editor.setHint('Selecciona un commit para ver sus cambios.<br><span style="color:var(--tx3)">Selecciona dos para comparar entre ellos.</span>');
     return;
   }
-  diffEl.innerHTML = spinner();
-  const allHashes = [...document.querySelectorAll('.fh-row')].map(r => r.dataset.hash);
-  const sorted    = _fhSelected.slice().sort((a, b) => allHashes.indexOf(b) - allHashes.indexOf(a));
+  editor.setLoading();
+
+  // Sort: sorted[0] = oldest (highest index in _fhAllCommits)
+  const sorted = _fhSelected.slice().sort(
+    (a, b) => _fhAllCommits.findIndex(c => c.hash === b) - _fhAllCommits.findIndex(c => c.hash === a)
+  );
+
   try {
+    const isSplit = getDiffMode() === 'split';
+    const modeBtn = `<button class="btn btn-xs diff-mode-btn" title="${isSplit ? 'Vista unificada' : 'Vista lado a lado'}">${isSplit ? '⊟' : '⊞'}</button>`;
     if (sorted.length === 2) {
       const [older, newer] = sorted;
       const data = await get('/repo/commit/diff-range', { hash1: older, hash2: newer, file: _fhFilePath });
-      diffEl.innerHTML =
-        `<div class="fh-diff-header"><span>Comparando <code class="fh-code-from">${escHtml(older.slice(0,7))}</code> → <code class="fh-code-to">${escHtml(newer.slice(0,7))}</code></span>${_fhDiffModeBtn()}</div>` +
-        _renderFhContent(data.diff);
+      const content = isSplit ? renderDiffSplit(data.diff, _fhFilePath) : renderDiff(data.diff, _fhFilePath);
+      editor.setContent(
+        `<div class="fh-diff-header"><span>Comparando <code class="fh-code-from">${escHtml(older.slice(0,7))}</code> → <code class="fh-code-to">${escHtml(newer.slice(0,7))}</code></span>${modeBtn}</div>` +
+        content
+      );
     } else {
       const data = await get('/repo/commit/diff', { hash: sorted[0], file: _fhFilePath });
-      diffEl.innerHTML =
-        `<div class="fh-diff-header"><span class="fh-code-to" style="font-family:monospace;font-size:11px">${escHtml(sorted[0].slice(0,7))}</span>${_fhDiffModeBtn()}</div>` +
-        _renderFhContent(data.diff);
+      const content = isSplit ? renderDiffSplit(data.diff, _fhFilePath) : renderDiff(data.diff, _fhFilePath);
+      editor.setContent(
+        `<div class="fh-diff-header"><span class="fh-code-to" style="font-family:monospace;font-size:11px">${escHtml(sorted[0].slice(0,7))}</span>${modeBtn}</div>` +
+        content
+      );
     }
-    if (getDiffMode() === 'split') syncSplitPanes(diffEl);
   } catch (e) {
-    diffEl.innerHTML = `<div class="diff-hint">Error: ${escHtml(e.message)}</div>`;
+    editor.setHint(`Error: ${escHtml(e.message)}`);
   }
-}
-
-export function toggleFhDiffMode() {
-  toggleDiffMode();
-  _updateFhDiff();
 }
 
 export async function showFileHistoryDiff(hash, file) {
   if (file && file !== _fhFilePath) _fhFilePath = file;
   fhRowClick(hash);
 }
+
+// ─── Blame (Autoría) ─────────────────────────────────────────────────────────
+
+let _blameMaximized = false;
+
+export async function openBlame(filePath) {
+  _blameMaximized = false;
+  document.getElementById('blameFileName').textContent = filePath;
+  document.getElementById('blameContent').innerHTML = spinner();
+  openModal('modalBlame');
+  try {
+    const data = await get('/repo/blame', { file: filePath });
+    const lines = data.lines || [];
+    if (!lines.length) {
+      document.getElementById('blameContent').innerHTML = '<div class="recover-empty">Sin datos de autoría.</div>';
+      return;
+    }
+    const hashColor = hash => {
+      let h = 0;
+      for (const c of hash) h = (h * 31 + c.charCodeAt(0)) & 0xFFFFFF;
+      return `hsl(${h % 360},50%,60%)`;
+    };
+    const rows = lines.map(l => `
+      <tr class="blame-row" onclick="window.copyToClipboard('${escAttr(l.fullHash)}')" title="${escAttr(l.summary)}\n${escAttr(l.author)} · ${escAttr(l.date?.slice(0,10) || '')}">
+        <td class="blame-ln">${l.lineNum}</td>
+        <td class="blame-hash" style="color:${hashColor(l.hash)}">${escHtml(l.hash)}</td>
+        <td class="blame-author">${escHtml(l.author)}</td>
+        <td class="blame-date">${escHtml(l.date?.slice(0,10) || '')}</td>
+        <td class="blame-code"><pre>${escHtml(l.content)}</pre></td>
+      </tr>`).join('');
+    document.getElementById('blameContent').innerHTML =
+      `<table class="blame-table"><tbody>${rows}</tbody></table>`;
+  } catch (e) {
+    document.getElementById('blameContent').innerHTML = `<div class="recover-empty">Error: ${escHtml(e.message)}</div>`;
+  }
+}
+
+export function toggleBlameMaximize() {
+  _blameMaximized = !_blameMaximized;
+  document.getElementById('modalBlameBox').classList.toggle('modal-maximized', _blameMaximized);
+  const btn = document.getElementById('btnBlameMaximize');
+  if (btn) { btn.textContent = _blameMaximized ? '⊡' : '⛶'; btn.title = _blameMaximized ? 'Restaurar' : 'Maximizar'; }
+}
+
+// ─── List registration (consumed by initAllGvmLists in panels.js) ─────────────
+
+defineEditor('fileHistoryDiff', { onToggle: () => _updateFhDiff() });
+
+defineList('fileHistoryList', {
+  renderItem: _renderFhItem,
+  selMode:    'none',
+  onActivate: (c) => fhRowClick(c.hash),
+});

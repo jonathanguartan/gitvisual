@@ -1,3 +1,4 @@
+import { emit } from './bus.js';
 import { state } from './state.js';
 import { escHtml, escAttr, empty } from './utils.js';
 import { fileState } from './files-state.js';
@@ -103,18 +104,19 @@ export function renderFileItem(f, listType, staged, displayName = null, indentPx
                ondragstart="fileDragStart(event,'${escAttr(f.path)}','${listType}')"
                ondragend="fileDragEnd(event)"
                title="${escAttr(f.path)}">
+    <input type="checkbox" class="file-checkbox"
+      ${staged ? 'checked' : ''}
+      onclick="event.stopPropagation();event.preventDefault();${staged ? `unstageFile('${escAttr(f.path)}')` : `stageFile('${escAttr(f.path)}')`}"
+      title="${staged ? 'Quitar del stage' : 'Añadir al stage'}"
+    >
     <span class="file-icon">${fileIcon(f.path)}</span>
     <span class="file-status ${statusCode}">${statusCode}</span>
     <span class="file-name">${escHtml(name)}</span>
     ${conflictBadge}
-    ${isConflicted ? '' : staged
-      ? `<button class="file-act" onclick="event.stopPropagation();unstageFile('${escAttr(f.path)}')" title="Quitar del stage">−</button>`
-      : `<div class="file-acts">
+    ${isConflicted || staged ? '' : `<div class="file-acts">
            <button class="file-act delete"  onclick="event.stopPropagation();removeFile('${escAttr(f.path)}')"  title="Eliminar">🗑</button>
            ${!isUntracked ? `<button class="file-act discard" onclick="event.stopPropagation();discardFile('${escAttr(f.path)}')" title="Descartar">⟲</button>` : ''}
-           <button class="file-act" onclick="event.stopPropagation();stageFile('${escAttr(f.path)}')" title="Stage">+</button>
-         </div>`
-    }
+         </div>`}
   </div>`;
 }
 
@@ -168,7 +170,7 @@ export function toggleFileView(listType) {
   localStorage.setItem(`gvm_view_${listType}`, fileState.viewMode[listType]);
   if (fileState.activeTreeItem?.listType === listType) fileState.activeTreeItem = null;
   if (listType === 'clean') _renderCleanSection();
-  else window.refreshStatus();
+  else emit('repo:refresh-status');
 }
 
 export function togglePanelMaximize(id) {
@@ -189,7 +191,7 @@ export function setFileSearch(val) {
 export function expandAllTree(listType) {
   fileState.collapsedFolders[listType].clear();
   if (listType === 'clean') _renderCleanSection();
-  else window.refreshStatus();
+  else emit('repo:refresh-status');
 }
 
 export function collapseAllTree(listType) {
@@ -211,7 +213,7 @@ export function collapseAllTree(listType) {
       fileState.collapsedFolders[listType].add(parts.slice(0, i).join('/'));
     }
   }
-  window.refreshStatus();
+  emit('repo:refresh-status');
 }
 
 export function toggleTreeFolder(folderPath, listType) {
@@ -222,7 +224,7 @@ export function toggleTreeFolder(folderPath, listType) {
   fileState.activeDiffList = null;
   document.querySelectorAll('.file-item.active-diff').forEach(el => el.classList.remove('active-diff'));
   if (listType === 'clean') _renderCleanSection();
-  else window.refreshStatus();
+  else emit('repo:refresh-status');
 }
 
 // ─── File filter ──────────────────────────────────────────────────────────────
@@ -267,6 +269,7 @@ async function _renderCleanSection() {
       const files = await get('/repo/files/all');
       _cleanFilesCache = files.filter(f => f.index === ' ' && f.working_dir === ' ');
     } catch (_) {
+      _cleanCacheDirty = true; // permitir reintento en el próximo render
       cleanFilesList.innerHTML = '';
       return;
     }

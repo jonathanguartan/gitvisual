@@ -12,14 +12,14 @@
 export { renderStatus, fileIcon, setCount, setFileFilter, toggleFileView, toggleTreeFolder, expandAllTree, collapseAllTree, togglePanelMaximize, setFileSearch, invalidateCleanCache } from './files-render.js';
 export { fileItemClick, toggleFileSelection, clearFileSelection, stageSelected, unstageSelected, discardSelected, untrackSelected, stageOrUnstageActiveFile, fileDragStart, fileDragEnd, fileDragOver, fileDragLeave, fileDrop } from './files-select.js';
 export { stageFile, unstageFile, discardFile, removeFile, removeFolder, openFileInEditor, resolveConflictSide, fileCtxShow, fileCtxAction, folderCtxShow, folderCtxAction } from './files-ops.js';
-export { openFileHistory, fhRowClick, filterFileHistory, toggleFhMaximize, toggleFhDiffMode, showFileHistoryDiff, toggleFhList } from './files-history.js';
+export { openFileHistory, fhRowClick, filterFileHistory, toggleFhMaximize, showFileHistoryDiff, toggleFhList, openBlame, toggleBlameMaximize } from './files-history.js';
 export { openGitignoreEditor, saveGitignore, openAddToGitignoreModal, selectGiOption, selectGiCustom, _updateGiCustomPreview, confirmAddToGitignore } from './files-gitignore.js';
 
 // ─── Imports para window assignments ─────────────────────────────────────────
 import { renderStatus, fileIcon, setCount, setFileFilter, toggleFileView, toggleTreeFolder, expandAllTree, collapseAllTree, togglePanelMaximize, setFileSearch } from './files-render.js';
 import { fileItemClick, toggleFileSelection, clearFileSelection, stageSelected, unstageSelected, discardSelected, untrackSelected, stageOrUnstageActiveFile, fileDragStart, fileDragEnd, fileDragOver, fileDragLeave, fileDrop } from './files-select.js';
 import { stageFile, unstageFile, discardFile, removeFile, removeFolder, openFileInEditor, resolveConflictSide, fileCtxShow, fileCtxAction, folderCtxShow, folderCtxAction } from './files-ops.js';
-import { openFileHistory, fhRowClick, filterFileHistory, toggleFhMaximize, toggleFhDiffMode, showFileHistoryDiff, toggleFhList } from './files-history.js';
+import { openFileHistory, fhRowClick, filterFileHistory, toggleFhMaximize, showFileHistoryDiff, toggleFhList, openBlame, toggleBlameMaximize } from './files-history.js';
 import { openGitignoreEditor, saveGitignore, openAddToGitignoreModal, selectGiOption, selectGiCustom, _updateGiCustomPreview, confirmAddToGitignore } from './files-gitignore.js';
 
 // ─── Window assignments para handlers de HTML ────────────────────────────────
@@ -59,8 +59,9 @@ window.showFileHistoryDiff   = showFileHistoryDiff;
 window.fhRowClick            = fhRowClick;
 window.toggleFhMaximize      = toggleFhMaximize;
 window.toggleFhList          = toggleFhList;
-window.toggleFhDiffMode      = toggleFhDiffMode;
 window.filterFileHistory     = filterFileHistory;
+window.openBlame            = openBlame;
+window.toggleBlameMaximize  = toggleBlameMaximize;
 window.openGitignoreEditor       = openGitignoreEditor;
 window.saveGitignore             = saveGitignore;
 window.openAddToGitignoreModal   = openAddToGitignoreModal;

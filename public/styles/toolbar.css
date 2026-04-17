@@ -110,26 +110,27 @@
 }
 .side-nav-btn span { font-size: 13px; width: 16px; text-align: center; }
 
-/* ─── Resizers ───────────────────────────────────────────────── */
-.resizer {
+/* ── Declarative pane resizer ──────────────────────────────────────────────── */
+.pane-resizer {
   flex-shrink: 0;
   background: var(--border);
   transition: background .15s;
   position: relative;
   z-index: 10;
 }
-.resizer:hover, .resizer.dragging { background: var(--blue); }
+.pane-resizer:hover,
+.pane-resizer.dragging { background: var(--blue); opacity: 1; }
 
-.resizer-col {
+.pane-resizer[data-dir="col"] {
   width: 3px;
   cursor: col-resize;
   height: 100%;
 }
-
-.resizer-row {
+.pane-resizer[data-dir="row"] {
   height: 3px;
   cursor: row-resize;
   width: 100%;
 }
+
 
 .tab-nav { display: none; }

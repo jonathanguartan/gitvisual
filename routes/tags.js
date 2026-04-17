@@ -18,7 +18,17 @@ router.get('/tags', async (req, res) => {
       const [name, type] = line.split('|');
       if (name) typeMap[name.trim()] = type?.trim() === 'tag' ? 'annotated' : 'lightweight';
     }
-    const all = (tagList.all || []).map(t => ({ name: t, type: typeMap[t] || 'lightweight' }));
+    // Obtener tags publicados en origin
+    let remoteTags = new Set();
+    try {
+      const lsRemote = await g.raw(['ls-remote', '--tags', 'origin']);
+      for (const line of lsRemote.trim().split('\n').filter(Boolean)) {
+        const ref = line.split('\t')[1];
+        if (ref && !ref.endsWith('^{}')) remoteTags.add(ref.replace('refs/tags/', ''));
+      }
+    } catch (_) {}
+
+    const all = (tagList.all || []).map(t => ({ name: t, type: typeMap[t] || 'lightweight', remote: remoteTags.has(t) }));
     res.json({ all, latest: tagList.latest });
   } catch (e) {
     handleGitError(res, e);

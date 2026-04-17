@@ -1,3 +1,7 @@
+import { initAllGvmPanes, ensurePaneVisible } from './gvm/gvm-pane.js';
+import { initAllGvmLists } from './gvm/gvm-lists.js';
+import { initAllGvmEditors } from './gvm/gvm-editors.js';
+import { initAllGvmContextMenus } from './gvm/gvm-ctx-menus.js';
 import { state } from './state.js';
 import { escHtml, escAttr, toast, openModal, spinner, empty } from './utils.js';
 import { loadLog } from './log.js';
@@ -113,132 +117,14 @@ export function updateCommitBadge() {
 
 // ─── Resizable Panels ─────────────────────────────────────────────────────────
 
-const PANEL_STORAGE_PREFIX = 'gvm_panel_';
-
-function savePanelSize(key, size) {
-  try { localStorage.setItem(PANEL_STORAGE_PREFIX + key, size); } catch (_) {}
-}
-
-function loadPanelSize(key) {
-  try { return parseInt(localStorage.getItem(PANEL_STORAGE_PREFIX + key)); } catch (_) {}
-  return NaN;
-}
-
-function initResizer(el, getTarget, direction, min, max, invert = false, storageKey = null, peekTarget = null) {
-  if (!el) return;
-  let dragging = false, startPos = 0, startSize = 0;
-
-  if (storageKey) {
-    const saved = loadPanelSize(storageKey);
-    if (!isNaN(saved) && saved >= min && saved <= max) {
-      requestAnimationFrame(() => {
-        const target = peekTarget ? peekTarget() : getTarget();
-        if (!target) return;
-        if (direction === 'col') target.style.width = saved + 'px';
-        else { target.style.flex = `0 0 ${saved}px`; target.style.height = saved + 'px'; }
-      });
-    }
-  }
-
-  el.addEventListener('mousedown', e => {
-    dragging = true;
-    el.classList.add('dragging');
-    startPos  = direction === 'col' ? e.clientX : e.clientY;
-    startSize = direction === 'col' ? getTarget().offsetWidth : getTarget().offsetHeight;
-    document.body.style.cursor     = direction === 'col' ? 'col-resize' : 'row-resize';
-    document.body.style.userSelect = 'none';
-    e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    const raw     = (direction === 'col' ? e.clientX : e.clientY) - startPos;
-    const delta   = invert ? -raw : raw;
-    const newSize = Math.min(max, Math.max(min, startSize + delta));
-    const target  = getTarget();
-    if (direction === 'col') target.style.width = newSize + 'px';
-    else { target.style.flex = `0 0 ${newSize}px`; target.style.height = newSize + 'px'; }
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
-    el.classList.remove('dragging');
-    document.body.style.cursor     = '';
-    document.body.style.userSelect = '';
-    if (storageKey) {
-      const target = getTarget();
-      if (target) savePanelSize(storageKey, direction === 'col' ? target.offsetWidth : target.offsetHeight);
-    }
-  });
-}
-
-// Init resizers after DOM is ready
-initResizer(
-  document.getElementById('sidebarResizer'),
-  () => document.querySelector('.sidebar'),
-  'col', 160, 420, false, 'sidebar'
-);
-
-initResizer(
-  document.getElementById('filesResizer'),
-  () => document.querySelector('.files-col'),
-  'col', 160, 600, false, 'filesCol'
-);
-
-initResizer(
-  document.getElementById('stagedResizer'),
-  () => document.querySelector('.files-section'),
-  'row', 60, 600, false, 'staged'
-);
-
-function initSidebarResizer(resizerId, sectionId, min, max) {
-  initResizer(
-    document.getElementById(resizerId),
-    () => {
-      const el = document.getElementById(sectionId);
-      el.classList.remove('collapsed');
-      return el;
-    },
-    'row', min, max, false, sectionId,
-    () => {
-      const el = document.getElementById(sectionId);
-      return el?.classList.contains('collapsed') ? null : el;
-    }
-  );
-}
-
-initResizer(
-  document.getElementById('stashResizer'),
-  () => document.querySelector('.stash-view-files'),
-  'col', 140, 480, false, 'stashFiles'
-);
-
-initResizer(
-  document.getElementById('logResizer'),
-  () => document.getElementById('logDetail'),
-  'col', 200, 600,
-  true, 'logDetail'
-);
-
-initResizer(
-  document.getElementById('logDetailResizer'),
-  () => document.getElementById('logDetailFiles'),
-  'row', 40, 500, false, 'logDetailFiles'
-);
-
-initSidebarResizer('repoResizer',      'sectionRepo',     28, 300);
-initSidebarResizer('branchesResizer',  'sectionBranches', 60, 600);
-initSidebarResizer('tagsResizer',      'sectionTags',     28, 400);
+// Auto-initialize all declarative UI components
+initAllGvmPanes();
+initAllGvmLists();
+initAllGvmEditors();
+initAllGvmContextMenus();
 
 export function ensureSplitVisible(selector, direction, minVisible) {
-  const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
-  if (!el) return;
-  const current = direction === 'col' ? el.offsetWidth : el.offsetHeight;
-  if (current < minVisible) {
-    if (direction === 'col') el.style.width = minVisible + 'px';
-    else { el.style.flex = `0 0 ${minVisible}px`; el.style.height = minVisible + 'px'; }
-  }
+  ensurePaneVisible(selector, direction, minVisible);
 }
 
 // ─── Window assignments for HTML onclick handlers ────────────────────────────

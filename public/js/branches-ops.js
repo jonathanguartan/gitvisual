@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { get, post, opPost } from './api.js';
 import { escHtml, escAttr, toast, openModal, closeModal, spinner } from './utils.js';
 import { renderDiff } from './diff.js';
+import { emit } from './bus.js';
 
 // ─── Helpers internos ─────────────────────────────────────────────────────────
 
@@ -47,10 +48,10 @@ export async function checkoutBranch(name) {
   showStatusLoading();
   try {
     await post('/repo/branch/checkout', { branchName: name });
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(`Rama cambiada a "${name}"`, 'success');
   } catch (e) {
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     toast(e.message, 'error');
   }
 }
@@ -74,10 +75,10 @@ export async function checkoutRemoteBranch(fullRemoteName) {
   showStatusLoading();
   try {
     await post('/repo/branch/checkout-remote', { remoteName: stripped });
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(`Rama local "${localName}" creada desde ${stripped} ✓`, 'success');
   } catch (e) {
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     toast(e.message, 'error');
   }
 }
@@ -126,7 +127,7 @@ export async function confirmDeleteBranch() {
       await post('/repo/branch/delete-remote', { remote, branch });
     }
     closeModal('modalDeleteBranch');
-    await window.refreshBranches();
+    emit('repo:refresh-branches');
     const extra = delRemote ? ' y rama remota' : '';
     toast(`Rama "${name}"${extra} eliminada ${force ? '(forzado)' : ''}`, 'info');
   } catch (e) {
@@ -146,7 +147,7 @@ export async function confirmDeleteRemoteBranch(upstream) {
   if (!confirm(`¿Eliminar la rama remota "${upstream}"?\nEsta acción no se puede deshacer.`)) return;
   try {
     await opPost('/repo/branch/delete-remote', { remote, branch: remoteBranch }, `Eliminando ${upstream}…`);
-    await window.refreshBranches();
+    emit('repo:refresh-branches');
     toast(`Rama remota "${upstream}" eliminada ✓`, 'info');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -186,7 +187,7 @@ export async function pullBranchFF(branch, upstream) {
   const remote = upstream.split('/')[0];
   try {
     await opPost('/repo/branch/pull-ff', { branch, remote }, `Actualizando "${branch}"…`);
-    await window.refreshBranches();
+    emit('repo:refresh-branches');
     toast(`Rama "${branch}" actualizada ✓`, 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -200,10 +201,10 @@ export async function mergeFromRemote(fullRemoteName, strategy = 'merge') {
 
   try {
     await opPost('/repo/branch/merge-from-remote', { remoteBranch: normalized, strategy }, label);
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(`"${state.currentBranch}" actualizada desde ${normalized} ✓`, 'success');
   } catch (e) {
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(e.message, 'error');
   }
 }
@@ -217,7 +218,7 @@ export async function checkoutNewBranchFromRemote(remoteDisplayName, fullRemoteN
 export async function conflictAbort(repoState) {
   try {
     await opPost('/repo/conflict/abort', { state: repoState }, `Abortando ${repoState.toLowerCase()}…`);
-    await window.refreshAll();
+    emit('repo:refresh');
     toast('Operación abortada. El repositorio volvió a su estado anterior.', 'info');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -235,7 +236,7 @@ export async function conflictContinue(repoState) {
   }
   try {
     await opPost('/repo/conflict/continue', { state: repoState, message }, `Continuando ${repoState.toLowerCase()}…`);
-    await window.refreshAll();
+    emit('repo:refresh');
     toast('Operación completada ✓', 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -261,7 +262,7 @@ export async function confirmRenameBranch() {
   try {
     await opPost('/repo/branch/rename', { branchName: _renameBranchOld, newName }, `Renombrando a "${newName}"…`);
     closeModal('modalRenameBranch');
-    await window.refreshBranches();
+    emit('repo:refresh-branches');
     toast(`Rama renombrada a "${newName}" ✓`, 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -293,7 +294,7 @@ export async function confirmRebase() {
     }
     await opPost('/repo/branch/rebase', { onto }, `Rebaseando "${branch}" sobre "${onto}"…`);
     closeModal('modalRebase');
-    await window.refreshAll();
+    emit('repo:refresh');
     toast('Rebase completado ✓', 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -358,7 +359,7 @@ export async function createBranch(name, from, skipModal = false) {
   try {
     await post('/repo/branch/create', { branchName: name, fromBranch: from, noCheckout });
     if (!skipModal) closeModal('modalBranch');
-    await window.refreshAll();
+    emit('repo:refresh');
     if (!skipModal) toast(noCheckout ? `Rama "${name}" creada (sin checkout)` : `Rama "${name}" creada y activa`, 'success');
     if (noCheckout) _highlightBranch(name);
     return true;
@@ -433,7 +434,7 @@ export async function confirmSetUpstream(localBranch) {
       await post('/repo/branch/set-upstream', { branchName: localBranch, upstream });
     }
     closeModal('modalSetUpstream');
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(isNew ? `Rama "${localBranch}" publicada en ${upstream} ✓` : `Rama remota asignada: ${upstream} → ${localBranch} ✓`, 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -442,7 +443,7 @@ export async function openCreateBranchAtModal(hash) {
   const name = prompt(`Nombre para la nueva rama (desde ${hash.slice(0,7)}):`);
   if (!name?.trim()) return;
   post('/repo/branch/create-at', { branchName: name.trim(), hash })
-    .then(() => { window.refreshBranches(); toast(`Rama "${name.trim()}" creada ✓`, 'success'); })
+    .then(() => { emit('repo:refresh-branches'); toast(`Rama "${name.trim()}" creada ✓`, 'success'); })
     .catch(e => toast(e.message, 'error'));
 }
 
@@ -520,6 +521,76 @@ export async function deleteSelectedMergedBranches() {
     } catch (_) { fail++; }
   }
   closeModal('modalMergedBranches');
-  await window.refreshBranches();
+  emit('repo:refresh-branches');
   toast(`${ok} ramas eliminadas${fail ? `, ${fail} fallidas` : ''} ✓`, ok > 0 ? 'success' : 'error');
+}
+
+// ─── Squash ───────────────────────────────────────────────────────────────────
+
+let _squashCommits = [];
+
+export async function openSquashModal() {
+  const commits = (state.logCommits || []).filter(c => c.hash && c.message);
+  if (commits.length < 2) { toast('Se necesitan al menos 2 commits para hacer squash', 'warn'); return; }
+
+  _squashCommits = commits.slice(0, Math.min(commits.length, 20));
+
+  const checklist = document.getElementById('squashChecklist');
+  checklist.innerHTML = _squashCommits.map((c, i) => `
+    <label class="squash-item ${i < 2 ? 'squash-item-checked' : ''}">
+      <input type="checkbox" class="squash-chk" value="${i}" ${i < 2 ? 'checked' : ''}
+             onchange="updateSquashPreview()" />
+      <span class="squash-hash">${escHtml(c.hash.slice(0, 7))}</span>
+      <span class="squash-msg">${escHtml(c.message)}</span>
+    </label>
+  `).join('');
+
+  document.getElementById('squashMessage').value = _squashCommits[0]?.message || '';
+  _renderSquashSummary();
+  openModal('modalSquash');
+}
+
+function _getSquashCount() {
+  // Squash must be consecutive from HEAD — enforce that only a leading
+  // contiguous range of checked items is valid.
+  const boxes = Array.from(document.querySelectorAll('.squash-chk'));
+  let n = 0;
+  for (const box of boxes) {
+    if (box.checked) n++;
+    else break; // stop at first unchecked gap
+  }
+  return n;
+}
+
+function _renderSquashSummary() {
+  const n = _getSquashCount();
+  const summary = document.getElementById('squashSummary');
+  if (!summary) return;
+  summary.textContent = n >= 2 ? `Se fusionarán ${n} commits en uno.` : 'Selecciona al menos 2 commits consecutivos desde HEAD.';
+  summary.className = 'squash-summary ' + (n >= 2 ? 'squash-ok' : 'squash-warn');
+}
+
+export function updateSquashPreview() {
+  // Enforce contiguous selection: uncheck any item after a gap
+  const boxes = Array.from(document.querySelectorAll('.squash-chk'));
+  let gap = false;
+  boxes.forEach(box => {
+    if (gap) { box.checked = false; box.closest('.squash-item')?.classList.remove('squash-item-checked'); return; }
+    if (!box.checked) gap = true;
+    box.closest('.squash-item')?.classList.toggle('squash-item-checked', box.checked);
+  });
+  _renderSquashSummary();
+}
+
+export async function confirmSquash() {
+  const n       = _getSquashCount();
+  const message = document.getElementById('squashMessage').value.trim();
+  if (n < 2)    { toast('Selecciona al menos 2 commits consecutivos desde HEAD', 'warn'); return; }
+  if (!message) { toast('Escribe un mensaje para el commit squash', 'warn'); return; }
+  try {
+    await opPost('/repo/branch/squash', { count: n, message }, `Squash de ${n} commits…`);
+    closeModal('modalSquash');
+    emit('repo:refresh');
+    toast(`${n} commits fusionados en uno ✓`, 'success');
+  } catch (e) { toast(e.message, 'error'); }
 }

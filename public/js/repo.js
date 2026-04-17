@@ -1,11 +1,13 @@
 import { state, tabs, activeTabId, saveSession } from './state.js';
 import { get, post, api } from './api.js';
 import { toast, openModal, escHtml, escAttr } from './utils.js';
+import { on, emit } from './bus.js';
 import { renderBranches, renderRepoInfo } from './branches.js';
 import { renderStatus, invalidateCleanCache } from './files.js';
 import { renderTags } from './tags.js';
 import { renderStashList } from './stash.js';
 import { startAutoFetch } from './sync.js';
+import { resetLogState } from './log.js';
 
 // ─── Repo Loading ─────────────────────────────────────────────────────────────
 
@@ -44,6 +46,7 @@ export async function loadRepo(repoPath) {
       toast('Repositorio Git inicializado', 'success');
     }
 
+    resetLogState();
     state.repoPath = repoPath;
     state.isLazy = false;
     document.getElementById('repoPath').value = repoPath;
@@ -85,12 +88,18 @@ export async function loadRepo(repoPath) {
 
 let _refreshing = false;
 let _refreshTabId = null;
+let _refreshPending = false; // hay un refresh pendiente esperando al actual
 
 export async function refreshAll() {
   const tabId = activeTabId;
-  // Solo bloquear si ya está refrescando ESTE mismo tab; si es otro tab, proceder
-  if (_refreshing && _refreshTabId === tabId) return;
+  // Si ya hay un refresh en curso para este tab, marcar pendiente y salir.
+  // Al terminar el refresh actual se lanzará uno nuevo con el estado actualizado.
+  if (_refreshing && _refreshTabId === tabId) {
+    _refreshPending = true;
+    return;
+  }
   _refreshing = true;
+  _refreshPending = false;
   _refreshTabId = tabId;
   window._refreshing = true;
   try {
@@ -106,6 +115,11 @@ export async function refreshAll() {
     if (_refreshTabId === tabId) {
       _refreshing = false;
       window._refreshing = false;
+      // Si mientras corría este refresh alguien pidió otro, lanzarlo ahora
+      if (_refreshPending) {
+        _refreshPending = false;
+        refreshAll();
+      }
     }
   }
 }
@@ -120,7 +134,37 @@ export async function refreshInfo(tabId = activeTabId) {
     // Use repo's detected default branch, falling back to global setting
     if (info.defaultBranch) window.mainBranch = info.defaultBranch;
     renderRepoInfo(info);
-  } catch (e) { console.warn('refreshInfo:', e.message); }
+    updateStatusBar(info);
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    console.warn('refreshInfo:', e.message);
+  }
+}
+
+function updateStatusBar(info) {
+  const bar    = document.getElementById('statusBar');
+  const branch = document.getElementById('sbBranch');
+  const ahead  = document.getElementById('sbAhead');
+  const behind = document.getElementById('sbBehind');
+  const path   = document.getElementById('sbPath');
+  if (!bar) return;
+
+  bar.style.display = 'flex';
+  branch.textContent = info.currentBranch ? `⎇ ${info.currentBranch}` : '(detached)';
+  path.textContent   = state.repoPath || '';
+
+  if (info.ahead > 0) {
+    ahead.textContent = `↑${info.ahead}`;
+    ahead.style.display = '';
+  } else {
+    ahead.style.display = 'none';
+  }
+  if (info.behind > 0) {
+    behind.textContent = `↓${info.behind}`;
+    behind.style.display = '';
+  } else {
+    behind.style.display = 'none';
+  }
 }
 
 export async function refreshStatus(tabId = activeTabId) {
@@ -299,6 +343,7 @@ export function showWelcome() {
   document.getElementById('welcome').style.display    = '';
   document.getElementById('mainLayout').style.display = 'none';
   document.getElementById('toolbar').style.display    = 'none';
+  document.getElementById('statusBar').style.display  = 'none';
   document.getElementById('repoPath').style.display   = 'block';
   document.getElementById('repoPathDisplay').style.display = 'none';
   document.getElementById('repoPath').value    = '';
@@ -316,21 +361,27 @@ function _scheduleRefresh(fn) {
   clearTimeout(_focusDebounce);
   _focusDebounce = setTimeout(() => {
     if (state.repoPath && document.getElementById('mainLayout').style.display !== 'none') fn();
-  }, 800);
+  }, 600);
 }
+// 'electronWindowFocus' → despachado por main.js vía executeJavaScript cuando el BrowserWindow
+// recupera el foco del SO (confiable en Electron, independiente de contextIsolation).
+window.addEventListener('electronWindowFocus', () => _scheduleRefresh(refreshAll));
+// Fallback para entorno browser (sin Electron)
 window.addEventListener('focus', () => _scheduleRefresh(refreshAll));
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') _scheduleRefresh(refreshStatus);
+  if (document.visibilityState === 'visible') _scheduleRefresh(refreshAll);
 });
 
 // ─── Window assignments for HTML onclick handlers ────────────────────────────
 
 window.loadRepo         = loadRepo;
 window.removeRecentRepo = removeRecentRepo;
-window.refreshAll       = refreshAll;
-window.refreshInfo      = refreshInfo;
-window.refreshStatus    = refreshStatus;
-window.refreshBranches  = refreshBranches;
 window.showWelcome      = showWelcome;
 window.renderAll        = renderAll;
 window.renderStashList  = renderStashList;
+
+// ─── Bus registrations ────────────────────────────────────────────────────────
+on('repo:refresh',          () => refreshAll());
+on('repo:refresh-status',   () => refreshStatus());
+on('repo:refresh-branches', () => refreshBranches());
+on('repo:load',             path => loadRepo(path));

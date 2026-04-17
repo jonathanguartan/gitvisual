@@ -3,6 +3,7 @@
 
 import './utils.js';
 import './state.js';
+import './bus.js';
 import './api.js';
 import './diff.js';
 import './files.js';
@@ -11,20 +12,19 @@ import './log.js';
 import './tags.js';
 import './stash.js';
 import './cherrypick.js';
-import './reflog.js';
+import './conflict-editor.js';
 import './commit.js';
 import './sync.js';
-import './pr.js';
-import './settings.js';
 import './repo.js';
 import './tabs.js';
 import './panels.js';
 
 import { hideOp, forceHideOp, opPost } from './api.js';
 import { state } from './state.js';
-import { toast } from './utils.js';
-import { loadLog } from './log.js';
-import { loadPRs } from './pr.js';
+import { toast, debounce } from './utils.js';
+import { emit } from './bus.js';
+import { loadLog, navigateLog, navigateLogFiles } from './log.js';
+import { navigateStash } from './stash.js';
 import { switchToPanel } from './panels.js';
 import { restoreSession, tabs, activeTabId } from './state.js';
 
@@ -33,7 +33,7 @@ import { restoreSession, tabs, activeTabId } from './state.js';
 window.stageAll = async () => {
   try {
     await opPost('/repo/stage', { files: ['.'] }, 'Añadiendo todo al stage…');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     toast('Todos los archivos en stage', 'success');
   } catch (e) { toast(e.message, 'error'); }
 };
@@ -42,7 +42,7 @@ window.unstageAll = async () => {
   if ((state.status?.staged || []).length === 0) return;
   try {
     await opPost('/repo/unstage', { files: 'all' }, 'Limpiando stage…');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     toast('Stage limpiado', 'info');
   } catch (e) { toast(e.message, 'error'); }
 };
@@ -53,14 +53,14 @@ window.discardAll = async () => {
   if (!confirm(`¿Descartar TODOS los cambios no preparados? (${unstaged.length} archivos)\nEsta acción NO se puede deshacer.`)) return;
   try {
     await opPost('/repo/discard', { files: 'all' }, 'Descartando cambios…');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     toast('Todos los cambios descartados', 'info');
   } catch (e) { toast(e.message, 'error'); }
 };
 
 window.refreshBranchesList = async () => {
   await window.doFetch();
-  await window.refreshBranches();
+  emit('repo:refresh-branches');
   toast('Ramas actualizadas', 'info');
 };
 
@@ -104,7 +104,14 @@ document.getElementById('btnConfirmRenameBranch').addEventListener('click', () =
 document.getElementById('btnConfirmRebase').addEventListener('click', () => window.confirmRebase());
 document.getElementById('btnSearchLog')?.addEventListener('click', () => loadLog());
 document.getElementById('btnLogAllBranches')?.addEventListener('click', () => loadLog(null));
-document.getElementById('logSearch')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadLog(); });
+const logSearchEl = document.getElementById('logSearch');
+if (logSearchEl) {
+  logSearchEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); loadLog(); } });
+  logSearchEl.addEventListener('input', () => {
+    clearTimeout(window._logSearchTimer);
+    window._logSearchTimer = setTimeout(() => loadLog(), 400);
+  });
+}
 document.getElementById('btnCloneBrowse').addEventListener('click', () => {
   window.openFolderBrowser(selectedPath => {
     document.getElementById('clonePath').value = selectedPath;
@@ -131,7 +138,7 @@ document.getElementById('btnCreateTag').addEventListener('click', () => window.c
 
 document.getElementById('btnRefreshBranches').addEventListener('click', () => window.refreshBranchesList());
 
-document.getElementById('btnRefresh').addEventListener('click', () => window.refreshAll());
+document.getElementById('btnRefresh').addEventListener('click', () => emit('repo:refresh'));
 document.getElementById('btnSync').addEventListener('click', () => window.syncRepo());
 document.getElementById('btnFetch').addEventListener('click', () => window.doFetch());
 document.getElementById('btnPull').addEventListener('click', () => window.doPull());
@@ -144,7 +151,7 @@ document.getElementById('btnConfirmPullFrom').addEventListener('click', () => wi
 
 document.getElementById('btnCreatePR').addEventListener('click', () => window.openPRModal());
 document.getElementById('btnSubmitPR').addEventListener('click', () => window.submitPR());
-document.getElementById('btnRefreshPRs').addEventListener('click', () => loadPRs());
+document.getElementById('btnRefreshPRs').addEventListener('click', () => window.loadPRs?.());
 
 document.getElementById('btnStageAll').addEventListener('click', () => window.stageAll());
 document.getElementById('btnDiscardAll').addEventListener('click', () => window.discardAll());
@@ -165,6 +172,51 @@ document.getElementById('tbRecover').addEventListener('click', () => window.open
 document.getElementById('tbProd').addEventListener('click', () => window.openProdModal());
 document.getElementById('tbPR').addEventListener('click', () => window.openPRModal());
 
+// ─── Centralized data-action dispatcher ──────────────────────────────────────
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+  const arg    = el.dataset.arg;
+  const modal  = el.dataset.modal;
+
+  switch (action) {
+    case 'maximize':        window.togglePanelMaximize?.(el.dataset.target); break;
+    case 'collapse': {
+      const id = el.dataset.target;
+      const target = document.getElementById(id);
+      if (!target) break;
+      target.classList.toggle('collapsed');
+      const allCollapsed = Array.from(
+        document.querySelectorAll('.panel-collapsible.collapsed, .side-section.collapsed')
+      ).map(e => e.id).filter(Boolean);
+      try { localStorage.setItem('gvm_collapsed_sections', JSON.stringify(allCollapsed)); } catch (_) {}
+      break;
+    }
+    // Modal management
+    case 'closeModal':      window.closeModal(modal || arg); break;
+    // Commit/stage actions
+    case 'doCommit':        window.doCommit?.(); break;
+    case 'confirmReset':    window.confirmReset?.(); break;
+    case 'confirmSquash':   window.confirmSquash?.(); break;
+    // Branch actions
+    case 'confirmDeleteBranch':  window.confirmDeleteBranch?.(); break;
+    case 'confirmRenameBranch':  window.confirmRenameBranch?.(); break;
+    case 'confirmRebase':        window.confirmRebase?.(); break;
+    case 'confirmSquashCommits': window.confirmSquash?.(); break;
+    // Tag actions
+    case 'confirmCreateTag':  window.confirmCreateTag?.(); break;
+    case 'confirmDeleteTag':  window.confirmDeleteTag?.(); break;
+    // Stash
+    case 'confirmStash':    window.confirmStash?.(); break;
+    // Conflict
+    case 'conflictAbort':   window.conflictAbort?.(arg); break;
+    case 'conflictContinue': window.conflictContinue?.(arg); break;
+    // PR
+    case 'confirmCreatePR': window.confirmCreatePR?.(); break;
+  }
+});
+
 // ─── Content Tabs ─────────────────────────────────────────────────────────────
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -174,7 +226,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
     if (btn.dataset.tab === 'log') loadLog();
-    if (btn.dataset.tab === 'prs') loadPRs();
+    if (btn.dataset.tab === 'prs') window.loadPRs?.();
   });
 });
 
@@ -197,7 +249,7 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'F5' && state.repoPath) {
     e.preventDefault();
-    window.refreshAll();
+    emit('repo:refresh');
   }
 });
 
@@ -263,7 +315,8 @@ function showShortcutsOverlay() {
           <kbd>Ctrl+1…5</kbd><span>Cambios / Ramas / Historial / Stash / Tags</span>
           <kbd>Ctrl+↵</kbd><span>Commit (desde cualquier lugar)</span>
           <kbd>Space</kbd><span>Stage / Unstage archivo activo</span>
-          <kbd>↑ ↓</kbd><span>Navegar archivos y carpetas</span>
+          <kbd>↑ ↓</kbd><span>Navegar archivos / commits del historial</span>
+          <kbd>Alt+↑ ↓</kbd><span>Navegar entre hunks del diff</span>
           <kbd>← →</kbd><span>Colapsar / Expandir carpeta (árbol)</span>
           <kbd>← (en archivo)</kbd><span>Ir a carpeta padre</span>
           <kbd>d</kbd><span>Alternar vista unificada / lado a lado</span>
@@ -308,6 +361,129 @@ window.addEventListener('pagehide', () => {
   } catch (_) {}
 });
 
+// Alt+↑ / Alt+↓ para navegar entre hunks
+document.addEventListener('keydown', e => {
+  if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  e.preventDefault();
+  window.navigateHunk(e.key === 'ArrowDown' ? 'next' : 'prev');
+});
+
+// ↑ / ↓ sin modificadores → navegar commits o archivos del commit cuando el panel Log está activo
+document.addEventListener('keydown', e => {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  const logPanel = document.getElementById('tab-log');
+  if (!logPanel || !logPanel.classList.contains('active')) return;
+  e.preventDefault();
+  const dir = e.key === 'ArrowDown' ? 1 : -1;
+  // If a file is active in the detail panel, navigate files; otherwise navigate commits
+  const hasActiveFile = !!document.querySelector('#logDetailFiles .log-detail-file.active');
+  if (hasActiveFile) navigateLogFiles(dir);
+  else navigateLog(dir);
+});
+
+// ↑ / ↓ → navegar stash cuando el panel Stash está activo
+document.addEventListener('keydown', e => {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  const stashPanel = document.getElementById('tab-stash');
+  if (!stashPanel || !stashPanel.classList.contains('active')) return;
+  e.preventDefault();
+  navigateStash(e.key === 'ArrowDown' ? 1 : -1);
+});
+
+// ─── Diff search (Ctrl+F) ─────────────────────────────────────────────────────
+
+let _dsMatches = [];
+let _dsIdx     = -1;
+
+function _getActiveDiffView() {
+  // Priority: logDetailDiff (if visible) → stashDiffView → main diffView
+  for (const id of ['logDetailDiff', 'stashDiffView', 'diffView']) {
+    const el = document.getElementById(id);
+    if (el && el.offsetParent !== null && el.textContent.trim()) return el;
+  }
+  return null;
+}
+
+function diffSearchOpen() {
+  const bar = document.getElementById('diffSearchBar');
+  bar.style.display = 'flex';
+  document.getElementById('diffSearchInput').focus();
+  document.getElementById('diffSearchInput').select();
+}
+
+function diffSearchClose() {
+  document.getElementById('diffSearchBar').style.display = 'none';
+  diffSearchClear();
+}
+
+function diffSearchClear() {
+  document.querySelectorAll('.diff-match-line, .diff-match-current').forEach(el => {
+    el.classList.remove('diff-match-line', 'diff-match-current');
+  });
+  _dsMatches = [];
+  _dsIdx = -1;
+  document.getElementById('diffSearchCount').textContent = '';
+}
+
+function diffSearchRun(query) {
+  diffSearchClear();
+  if (!query) return;
+  const view = _getActiveDiffView();
+  if (!view) return;
+  const lines = view.querySelectorAll('.dl-line, .d-line, .diff-line, tr');
+  const lq = query.toLowerCase();
+  lines.forEach(line => {
+    if (line.textContent.toLowerCase().includes(lq)) {
+      line.classList.add('diff-match-line');
+      _dsMatches.push(line);
+    }
+  });
+  if (_dsMatches.length) { _dsIdx = 0; _dsHighlight(); }
+  const countEl = document.getElementById('diffSearchCount');
+  countEl.textContent = _dsMatches.length ? `1 / ${_dsMatches.length}` : 'Sin resultados';
+}
+
+function _dsHighlight() {
+  _dsMatches.forEach((el, i) => el.classList.toggle('diff-match-current', i === _dsIdx));
+  if (_dsMatches[_dsIdx]) {
+    _dsMatches[_dsIdx].scrollIntoView({ block: 'center' });
+    document.getElementById('diffSearchCount').textContent = `${_dsIdx + 1} / ${_dsMatches.length}`;
+  }
+}
+
+function diffSearchNav(dir) {
+  if (!_dsMatches.length) return;
+  _dsIdx = (_dsIdx + dir + _dsMatches.length) % _dsMatches.length;
+  _dsHighlight();
+}
+
+const _dsDebouncedRun = debounce(q => diffSearchRun(q), 200);
+
+document.getElementById('diffSearchInput').addEventListener('input', e => _dsDebouncedRun(e.target.value.trim()));
+document.getElementById('diffSearchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter')  { e.preventDefault(); diffSearchNav(e.shiftKey ? -1 : 1); }
+  if (e.key === 'Escape') { e.preventDefault(); diffSearchClose(); }
+});
+document.getElementById('diffSearchPrev').addEventListener('click',  () => diffSearchNav(-1));
+document.getElementById('diffSearchNext').addEventListener('click',  () => diffSearchNav(1));
+document.getElementById('diffSearchClose').addEventListener('click', () => diffSearchClose());
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (_getActiveDiffView()) { e.preventDefault(); diffSearchOpen(); }
+  }
+});
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 function initApp() {
@@ -322,3 +498,16 @@ function initApp() {
 }
 
 initApp();
+
+// ─── Lazy-load módulos no críticos al arranque ────────────────────────────────
+// settings, pr, reflog se cargan en idle para no bloquear el render inicial.
+function _lazyLoadDeferred() {
+  import('./settings.js').catch(() => {});
+  import('./pr.js').catch(() => {});
+  import('./reflog.js').catch(() => {});
+}
+if (typeof requestIdleCallback !== 'undefined') {
+  requestIdleCallback(_lazyLoadDeferred, { timeout: 2000 });
+} else {
+  setTimeout(_lazyLoadDeferred, 300);
+}

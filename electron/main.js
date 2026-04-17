@@ -110,6 +110,17 @@ function createWindow(port) {
     mainWindow.focus();
   });
 
+  // Notifica al renderer cuando el BrowserWindow recupera el foco del SO,
+  // para que pueda refrescar la lista de archivos sin depender de window.focus
+  // del renderer (que no es confiable para cambios de foco a nivel de SO en Electron).
+  mainWindow.on('focus', () => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents
+        .executeJavaScript('window.dispatchEvent(new CustomEvent("electronWindowFocus"))')
+        .catch(() => {});
+    }
+  });
+
   // Links externos se abren en el browser del sistema.
   // will-navigate evita el crash de Chromium "origin.IsValid()" que ocurre
   // cuando setWindowOpenHandler devuelve deny y Chromium intenta validar el origen.

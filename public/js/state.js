@@ -10,14 +10,18 @@ export function activeTab() {
 export function newTabData(id) {
   return {
     id,
-    repoPath:       '',
-    currentBranch:  '',
-    repoInfo:       null,
-    status:         null,
-    branches:       null,
-    branchTracking: {},
-    githubInfo:     null,
-    stashList:      [],
+    repoPath:        '',
+    currentBranch:   '',
+    repoInfo:        null,
+    status:          null,
+    branches:        null,
+    branchTracking:  {},
+    githubInfo:      null,
+    stashList:       [],
+    // Log panel state (per-tab)
+    logBranch:       null,
+    logCommits:      [],
+    logSelectedIdx:  -1,
   };
 }
 

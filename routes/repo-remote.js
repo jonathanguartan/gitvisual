@@ -35,6 +35,12 @@ router.post('/push', async (req, res) => {
   try {
     await _configureHttpForPush(g);
 
+    // Verificar que la rama tenga al menos un commit antes de intentar push
+    const hasCommit = await g.raw(['rev-parse', '--verify', branch]).then(() => true).catch(() => false);
+    if (!hasCommit) {
+      return res.status(400).json({ error: `La rama "${branch}" no tiene commits aún. Haz al menos un commit antes de hacer push.` });
+    }
+
     if (batched) {
       const isFirstPush = !!setUpstream;
       const commits = await _getAheadCommits(g, remote, branch, isFirstPush);
@@ -111,6 +117,12 @@ router.post('/push-production', async (req, res) => {
   const g = git(repoPath);
   let originalBranch = null;
   try {
+    // Verificar que la rama destino tenga al menos un commit
+    const hasCommit = await g.raw(['rev-parse', '--verify', productionBranch]).then(() => true).catch(() => false);
+    if (!hasCommit) {
+      return res.status(400).json({ error: `La rama "${productionBranch}" no tiene commits aún. Haz al menos un commit antes de publicar.` });
+    }
+
     const status = await g.status();
     if (status.staged.length > 0 || status.modified.length > 0) {
       return res.status(400).json({ error: 'Tienes cambios sin commitear. Haz commit primero.' });

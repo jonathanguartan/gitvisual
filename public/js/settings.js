@@ -1,3 +1,4 @@
+import { emit } from './bus.js';
 import { state } from './state.js';
 import { get, post, opPost, api } from './api.js';
 import { escHtml, escAttr, toast, openModal, closeModal } from './utils.js';
@@ -175,7 +176,7 @@ export async function saveSettings() {
     }
 
     closeModal('modalSettings');
-    await window.refreshAll();
+    emit('repo:refresh');
     toast('Configuración guardada ✓', 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -260,7 +261,7 @@ function renderRecoverBranches(branches) {
 export async function recoverFromStash(fullHash) {
   try {
     await opPost('/repo/recover/stash-apply', { fullHash }, 'Aplicando stash recuperado…');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     closeModal('modalRecover');
     toast('Stash aplicado correctamente', 'success');
   } catch (e) { toast(e.message, 'error'); }
@@ -287,7 +288,7 @@ export async function recoverBranch(hash, name) {
   }
   try {
     await opPost('/repo/recover/branch', { hash, name: branchName }, 'Restaurando rama…');
-    await window.refreshBranches();
+    emit('repo:refresh-branches');
     closeModal('modalRecover');
     toast(`Rama "${branchName}" restaurada`, 'success');
   } catch (e) { toast(e.message, 'error'); }
@@ -328,7 +329,7 @@ export async function confirmCherryPick() {
     toast(`Aplicando cherry-pick del commit ${commitHash.slice(0, 7)}…`, 'info');
     await post('/repo/cherry-pick', { commitHash, targetBranch });
     closeModal('modalCherryPick');
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(`Cherry-pick de ${commitHash.slice(0, 7)} aplicado con éxito ✓`, 'success');
   } catch (e) {
     toast(`Error en cherry-pick: ${e.message}`, 'error');
@@ -358,7 +359,7 @@ export async function pushToProduction(branchOverride = null, mergeFromOverride 
   try {
     const result = await opPost('/repo/push-production', { productionBranch, mergeFrom }, `🚀 Push a producción (${productionBranch})…`);
     if (result === null) return false;
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(`🚀 ${result.message}`, 'success');
     return true;
   } catch (e) { toast(`Error: ${e.message}`, 'error'); return false; }
@@ -429,7 +430,7 @@ export async function addRemoteFromForm() {
     document.getElementById('newRemoteUrl').value  = '';
     toast(`Remoto "${name}" añadido ✓`, 'success');
     loadRemotesTab();
-    await window.refreshAll();
+    emit('repo:refresh');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -439,7 +440,7 @@ export async function deleteRemote(name) {
     await post('/repo/remote/delete', { name });
     toast(`Remoto "${name}" eliminado ✓`, 'info');
     loadRemotesTab();
-    await window.refreshAll();
+    emit('repo:refresh');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -450,7 +451,7 @@ export async function renameRemotePrompt(oldName) {
     await post('/repo/remote/rename', { oldName, newName });
     toast(`Remoto renombrado a "${newName}" ✓`, 'success');
     loadRemotesTab();
-    await window.refreshAll();
+    emit('repo:refresh');
   } catch (e) { toast(e.message, 'error'); }
 }
 

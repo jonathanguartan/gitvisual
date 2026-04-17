@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { opPost } from './api.js';
 import { escHtml, toast, openModal, closeModal } from './utils.js';
+import { emit } from './bus.js';
 
 let _cpHash = null;
 
@@ -32,10 +33,10 @@ export async function confirmCherryPick() {
   try {
     await opPost('/repo/cherry-pick', { commitHash: _cpHash, targetBranch }, label);
     closeModal('modalCherryPick');
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(`Cherry-pick ${_cpHash.slice(0,7)} aplicado ✓`, 'success');
   } catch (e) {
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(e.message, 'error');
   }
 }

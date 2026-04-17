@@ -1,23 +1,68 @@
+import { defineList, getList } from './gvm/gvm-lists.js';
+import { emit } from './bus.js';
 import { state } from './state.js';
-import { get, post, opPost } from './api.js';
-import { escHtml, escAttr, relTime, toast, openModal, closeModal, showCtxMenu, closeAllCtxMenus, copyToClipboard, spinner, empty } from './utils.js';
-import { renderDiff, renderDiffSplit, getDiffMode, toggleDiffMode, syncSplitPanes } from './diff.js';
+import { get, opPost } from './api.js';
+import { escHtml, escAttr, relTime, toast, openModal, closeModal, copyToClipboard, spinner, empty } from './utils.js';
+import { defineEditor, getEditor } from './gvm/gvm-editors.js';
+import { defineContextMenu, getContextMenu } from './gvm/gvm-ctx-menus.js';
 
-// ─── Render: Log ──────────────────────────────────────────────────────────────
+// ─── Render ───────────────────────────────────────────────────────────────────
 
-let _logBranch = null;
+function _authorColor(name) {
+  const palette = ['#89b4fa','#a6e3a1','#f9e2af','#cba6f7','#f38ba8','#94e2d5','#fab387','#89dceb'];
+  let h = 0;
+  for (let i = 0; i < (name || '').length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return palette[Math.abs(h) % palette.length];
+}
+
+function _renderLogItem(c, idx, { selected }) {
+  const hash  = c.hash;
+  const short = hash.slice(0, 7);
+  const refsHtml = (c.refs || '').split(',').filter(Boolean).map(r => {
+    let name = r.trim();
+    let type = 'branch';
+    if (name.startsWith('tag:'))    { type = 'tag';  name = name.replace('tag:', '').trim(); }
+    if (name.includes('HEAD ->'))   { type = 'head'; name = name.replace('HEAD ->', '').trim(); }
+    return `<span class="log-ref ${type}">${escHtml(name)}</span>`;
+  }).join(' ');
+
+  const initial     = escHtml((c.author_name || '?')[0].toUpperCase());
+  const avatarColor = _authorColor(c.author_name);
+
+  return `<div class="log-item${selected ? ' selected' : ''}">
+    <div class="log-avatar" style="background:${avatarColor}" title="${escAttr(c.author_name)}">${initial}</div>
+    <div class="log-content">
+      <div class="log-msg-row">
+        <div class="log-msg">${escHtml(c.message)}</div>
+        <div class="log-item-actions">
+          <button class="log-act" onclick="event.stopPropagation();window.openCherryPickModal('${escAttr(hash)}')" title="Cherry-pick">🍒</button>
+          <button class="log-act" onclick="event.stopPropagation();openResetModal('${escAttr(hash)}')" title="Reset aquí">↺</button>
+          <button class="log-act" onclick="event.stopPropagation();window.openCreateBranchAtModal('${escAttr(hash)}')" title="Crear rama aquí">⎇</button>
+        </div>
+      </div>
+      <div class="log-meta">
+        ${refsHtml}
+        <span class="log-hash" data-action="copy-hash" title="Copiar hash">${short}</span>
+      </div>
+    </div>
+    <div class="log-author-col" title="${escAttr(c.author_name)}">${escHtml(c.author_name)}</div>
+    <div class="log-date-col">${relTime(c.date)}</div>
+  </div>`;
+}
+
+// ─── Load ─────────────────────────────────────────────────────────────────────
 
 export async function loadLog(branch) {
-  if (branch !== undefined) _logBranch = branch;
-  const el = document.getElementById('commitLog');
+  if (branch !== undefined) state.logBranch = branch;
+  const el  = document.getElementById('commitLog');
   const svg = document.getElementById('logGraph');
   const searchInput = document.getElementById('logSearch');
   const search = searchInput ? searchInput.value.trim() : '';
 
   const indicator = document.getElementById('logBranchIndicator');
   if (indicator) {
-    if (_logBranch) {
-      indicator.textContent = `⎇ ${_logBranch}`;
+    if (state.logBranch) {
+      indicator.textContent = `⎇ ${state.logBranch}`;
       indicator.style.display = '';
     } else {
       indicator.style.display = 'none';
@@ -25,18 +70,15 @@ export async function loadLog(branch) {
   }
 
   el.innerHTML = spinner();
-  if (svg) {
-    svg.innerHTML = '';
-    svg.style.height = '0px';
-  }
+  el.style.height = '';
+  if (svg) { svg.innerHTML = ''; svg.style.height = '0px'; }
 
   try {
     const params = { limit: '100', search };
-    if (_logBranch) params.branch = _logBranch;
+    if (state.logBranch) params.branch = state.logBranch;
     const data = await get('/repo/log', params);
-    // Si la rama ya no existe, el backend hizo fallback a --all; limpiar el filtro
-    if (_logBranch && data.branchNotFound) {
-      _logBranch = null;
+    if (state.logBranch && data.branchNotFound) {
+      state.logBranch = null;
       if (indicator) indicator.style.display = 'none';
       toast(`La rama "${params.branch}" ya no existe localmente`, 'warn');
     }
@@ -44,72 +86,36 @@ export async function loadLog(branch) {
 
     if (commits.length === 0) {
       el.innerHTML = empty('📋', search ? 'No se encontraron resultados' : 'Sin commits todavía');
+      el.style.height = '';
       return;
     }
 
-    el.innerHTML = commits.map(c => {
-      const refsHtml = (c.refs || '').split(',').filter(Boolean).map(r => {
-        let name = r.trim();
-        let type = 'branch';
-        if (name.startsWith('tag:')) { type = 'tag'; name = name.replace('tag:', '').trim(); }
-        if (name.includes('HEAD ->')) { type = 'head'; name = name.replace('HEAD ->', '').trim(); }
-        return `<span class="log-ref ${type}">${escHtml(name)}</span>`;
-      }).join(' ');
+    state.logCommits     = commits;
+    state.logSelectedIdx = -1;
 
-      return `
-        <div class="log-item" 
-             data-hash="${c.hash}" 
-             data-message="${escAttr(c.message)}" 
-             data-author="${escAttr(c.author_name)}" 
-             data-date="${escAttr(c.date)}">
-          <div class="log-content">
-            <div class="log-msg">${escHtml(c.message)}</div>
-            <div class="log-meta">
-              ${refsHtml}
-              <span class="log-hash" data-action="copy-hash" title="Copiar hash">${c.hash.slice(0, 7)}</span>
-              <span><strong>${escHtml(c.author_name)}</strong></span>
-              <span>${relTime(c.date)}</span>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    getList('commitLog')?.setItems(commits);
 
-    // Delegación de eventos para el log
-    el.onclick = (e) => {
-      const item = e.target.closest('.log-item');
-      if (!item) return;
-      if (e.target.dataset.action === 'copy-hash') {
-        e.stopPropagation();
-        copyToClipboard(item.dataset.hash);
-        return;
-      }
-      showCommitDetail(item.dataset.hash, item.dataset.message, item.dataset.author, item.dataset.date);
-    };
-    el.oncontextmenu = (e) => {
-      const item = e.target.closest('.log-item');
-      if (item) commitCtxShow(e, item.dataset.hash, item.dataset.message);
-    };
+    if (svg && commits.length > 0) requestAnimationFrame(() => drawGraph(commits, svg));
 
-    if (svg && commits.length > 0) {
-      requestAnimationFrame(() => drawGraph(commits, svg));
-    }
-
-    if (_logBranch && commits.length > 0) {
+    if (state.logBranch && commits.length > 0) {
       const first = commits[0];
       showCommitDetail(first.hash, first.message, first.author_name, first.date);
     }
 
   } catch (e) {
+    if (e.name === 'AbortError') return;
     console.error('loadLog error:', e);
     el.innerHTML = empty('⚠', e.message);
+    el.style.height = '';
   }
 }
 
+// ─── Commit detail ────────────────────────────────────────────────────────────
+
 async function showCommitDetail(hash, message, author, date) {
-  document.querySelectorAll('.log-item').forEach(el => el.classList.remove('selected'));
-  const item = document.getElementById(`commit-${hash}`);
-  if (item) item.classList.add('selected');
+  const idx = (state.logCommits || []).findIndex(c => c.hash === hash);
+  state.logSelectedIdx = idx;
+  if (idx >= 0) getList('commitLog')?.selectIndex(idx, false);
 
   document.getElementById('logDetailEmpty').style.display   = 'none';
   document.getElementById('logDetailContent').style.display = '';
@@ -137,15 +143,29 @@ async function showCommitDetail(hash, message, author, date) {
     const files = data.files || [];
 
     if (files.length === 0) {
+      document.getElementById('logDetailStats').innerHTML = '';
       filesEl.innerHTML = '<div class="empty-state-small">Sin archivos modificados</div>';
       return;
     }
-    filesEl.innerHTML = files.map(f => `
-      <div class="log-detail-file" data-path="${escAttr(f.path)}">
-        <span class="ldf-status ${f.status}">${f.status}</span>
-        <span class="ldf-name" title="${escAttr(f.path)}">${escHtml(f.path)}</span>
-      </div>
-    `).join('');
+    const totalAdd = files.reduce((s, f) => s + (f.add || 0), 0);
+    const totalDel = files.reduce((s, f) => s + (f.del || 0), 0);
+    document.getElementById('logDetailStats').innerHTML =
+      totalAdd + totalDel > 0
+        ? `<span class="ldf-stat-add">+${totalAdd}</span><span class="ldf-stat-del">−${totalDel}</span>`
+        : '';
+
+    filesEl.innerHTML = files.map(f => {
+      const statsHtml = (f.add || f.del)
+        ? `<span class="ldf-stat-add">+${f.add}</span><span class="ldf-stat-del">−${f.del}</span>`
+        : '';
+      return `
+        <div class="log-detail-file" data-path="${escAttr(f.path)}">
+          <span class="ldf-status ${f.status}">${f.status}</span>
+          <span class="ldf-name" title="${escAttr(f.path)}">${escHtml(f.path)}</span>
+          <span class="ldf-stats">${statsHtml}</span>
+        </div>
+      `;
+    }).join('');
 
     filesEl.onclick = (e) => {
       const row = e.target.closest('.log-detail-file');
@@ -156,7 +176,7 @@ async function showCommitDetail(hash, message, author, date) {
   }
 }
 
-let _logDiffArgs = null;
+// ─── File diff ────────────────────────────────────────────────────────────────
 
 async function showCommitFileDiff(hash, file, rowEl) {
   document.querySelectorAll('.log-detail-file').forEach(el => el.classList.remove('active'));
@@ -172,32 +192,26 @@ async function showCommitFileDiff(hash, file, rowEl) {
     resizerEl.style.display = '';
   }
 
-  _logDiffArgs = { hash, file };
-  window.ensureSplitVisible?.('#logDetail', 'col', 260);
+  window.ensureSplitVisible?.('#logDetail', 'row', 150);
   diffEl.className = 'log-detail-diff visible';
-  diffEl.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  const editor = getEditor('logDetailDiff');
+  editor.setLoading();
 
   try {
     const data = await get('/repo/commit/diff', { hash, file });
-    _renderLogDiff(diffEl, data.diff || '', file);
+    editor.render(data.diff || '', file);
   } catch (e) {
-    diffEl.innerHTML = `<div class="diff-hint">${escHtml(e.message)}</div>`;
+    editor.setHint(escHtml(e.message));
   }
 }
 
-function _renderLogDiff(diffEl, diff, file) {
-  const isSplit = getDiffMode() === 'split';
-  const modeBtn = `<button class="btn btn-xs diff-mode-btn" onclick="toggleLogDiffMode()" title="${isSplit ? 'Vista unificada' : 'Vista lado a lado'}">${isSplit ? '⊟' : '⊞'}</button>`;
-  const content = isSplit ? renderDiffSplit(diff, file) : renderDiff(diff, file);
-  diffEl.innerHTML = `<div class="diff-filename"><span>${escHtml(file)}</span>${modeBtn}</div>${content}`;
-  if (isSplit) syncSplitPanes(diffEl);
-}
+// ─── Graph ────────────────────────────────────────────────────────────────────
 
 function drawGraph(commits, svg) {
-  const ITEM_HEIGHT = 44;
+  const ITEM_HEIGHT  = 44;
   const COLUMN_WIDTH = 12;
-  const RADIUS = 3.5;
-  const MARGIN_LEFT = 25;
+  const RADIUS       = 3.5;
+  const MARGIN_LEFT  = 25;
 
   const lanes = [];
   const commitMap = new Map();
@@ -217,7 +231,6 @@ function drawGraph(commits, svg) {
     const y = (i * ITEM_HEIGHT) + (ITEM_HEIGHT / 2);
 
     const parents = (c.parents || []).filter(p => commitMap.has(p));
-
     lanes[lane] = null;
 
     parents.forEach((pHash) => {
@@ -228,10 +241,8 @@ function drawGraph(commits, svg) {
         if (pLane === -1) { pLane = lanes.length; lanes.push(pHash); }
         else { lanes[pLane] = pHash; }
       }
-
       const px = MARGIN_LEFT + (pLane * COLUMN_WIDTH);
       const py = (parent.index * ITEM_HEIGHT) + (ITEM_HEIGHT / 2);
-
       html += `<path d="M ${x} ${y} C ${x} ${y + 15}, ${px} ${py - 15}, ${px} ${py}"
                      fill="none" class="lane-${lane % 7}" stroke-width="1.5" />`;
     });
@@ -244,15 +255,35 @@ function drawGraph(commits, svg) {
   svg.style.height = (commits.length * ITEM_HEIGHT) + 'px';
 }
 
+// ─── Keyboard navigation ─────────────────────────────────────────────────────
+
+export function navigateLog(direction) {
+  getList('commitLog')?.focusNeighbor(direction);
+}
+
+export function navigateLogFiles(direction) {
+  const items = Array.from(document.querySelectorAll('#logDetailFiles .log-detail-file'));
+  if (!items.length) return;
+  const active = items.findIndex(el => el.classList.contains('active'));
+  const next = active + direction;
+  if (next < 0 || next >= items.length) return;
+  items[next].click();
+}
+
+export function resetLogState() {
+  state.logBranch      = null;
+  state.logCommits     = [];
+  state.logSelectedIdx = -1;
+  getList('commitLog')?.setItems([]);
+  const searchInput = document.getElementById('logSearch');
+  if (searchInput) searchInput.value = '';
+  const indicator = document.getElementById('logBranchIndicator');
+  if (indicator) indicator.style.display = 'none';
+}
+
 // ─── Commit Context Menu ──────────────────────────────────────────────────────
 
-let _commitCtxData = null;
-
 export function commitCtxShow(event, hash, message) {
-  event.preventDefault();
-  event.stopPropagation();
-  _commitCtxData = { hash, message };
-
   const short = hash.slice(0, 7);
   let items = '';
   items += `<div class="ctx-item" onclick="commitCtxAction('copy-short')">📋 Copiar hash corto (${short})</div>`;
@@ -262,30 +293,16 @@ export function commitCtxShow(event, hash, message) {
   items += `<div class="ctx-item" onclick="commitCtxAction('branch-here')">⎇ Crear rama aquí</div>`;
   items += `<div class="ctx-item" onclick="commitCtxAction('tag-here')">◈ Crear tag aquí</div>`;
   items += `<div class="ctx-sep"></div>`;
+  items += `<div class="ctx-item" onclick="commitCtxAction('squash')">⊕ Squash commits…</div>`;
+  items += `<div class="ctx-sep"></div>`;
   items += `<div class="ctx-item ctx-warn" onclick="commitCtxAction('reset')">↺ Reset aquí…</div>`;
   items += `<div class="ctx-item ctx-danger" onclick="commitCtxAction('revert')">↩ Revertir commit</div>`;
-
-  showCtxMenu('commitCtxMenu', event, items);
+  getContextMenu('commitCtxMenu').show(event, { hash, message }, items);
 }
 
-export function commitCtxClose() {
-  document.getElementById('commitCtxMenu').style.display = 'none';
-}
+export function commitCtxClose() { getContextMenu('commitCtxMenu').close(); }
 
-export function commitCtxAction(action) {
-  closeAllCtxMenus();
-  const d = _commitCtxData;
-  if (!d) return;
-  switch (action) {
-    case 'copy-short':  copyToClipboard(d.hash.slice(0, 7)); break;
-    case 'copy-full':   copyToClipboard(d.hash); break;
-    case 'cherry-pick': window.openCherryPickModal(d.hash); break;
-    case 'branch-here': window.openCreateBranchAtModal(d.hash); break;
-    case 'tag-here':    window.openTagAtModal(d.hash); break;
-    case 'reset':       openResetModal(d.hash); break;
-    case 'revert':      revertCommit(d.hash); break;
-  }
-}
+export function commitCtxAction(action) { getContextMenu('commitCtxMenu').action(action); }
 
 // ─── Reset ────────────────────────────────────────────────────────────────────
 
@@ -304,7 +321,7 @@ export async function confirmReset() {
   if (mode === 'hard' && !confirm(`¿Reset HARD a ${_resetHash.slice(0,7)}?\nSe perderán TODOS los cambios no commiteados. Esta acción no se puede deshacer.`)) return;
   try {
     await opPost('/repo/reset', { hash: _resetHash, mode }, `Reset ${mode} a ${_resetHash.slice(0,7)}…`);
-    await window.refreshAll();
+    emit('repo:refresh');
     closeModal('modalReset');
     toast(`Reset ${mode} completado ✓`, 'success');
   } catch (e) { toast(e.message, 'error'); }
@@ -314,25 +331,46 @@ async function revertCommit(hash) {
   if (!confirm(`¿Revertir commit ${hash.slice(0,7)}?\nSe creará un nuevo commit deshaciendo los cambios.`)) return;
   try {
     await opPost('/repo/commit/revert', { hash }, `Revirtiendo ${hash.slice(0,7)}…`);
-    await window.refreshAll();
+    emit('repo:refresh');
     toast('Commit revertido ✓', 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
 
-// ─── Window assignments for HTML onclick handlers ────────────────────────────
+// ─── Window assignments for HTML onclick handlers ─────────────────────────────
 
-window.commitCtxShow   = commitCtxShow;
-window.commitCtxAction = commitCtxAction;
-window.commitCtxClose  = commitCtxClose;
-window.openResetModal  = openResetModal;
-window.confirmReset    = confirmReset;
+window.commitCtxShow        = commitCtxShow;
+window.commitCtxAction      = commitCtxAction;
+window.commitCtxClose       = commitCtxClose;
+window.openResetModal       = openResetModal;
+window.confirmReset         = confirmReset;
 window.showCommitDetail     = showCommitDetail;
 window.showCommitFileDiff   = showCommitFileDiff;
 window.loadLog              = loadLog;
-window.toggleLogDiffMode = function() {
-  toggleDiffMode();
-  if (_logDiffArgs) {
-    const diffEl = document.getElementById('logDetailDiff');
-    get('/repo/commit/diff', _logDiffArgs).then(data => _renderLogDiff(diffEl, data.diff || '', _logDiffArgs.file)).catch(() => {});
-  }
-};
+
+// ─── List & editor registration (consumed by panels.js) ───────────────────────
+
+defineEditor('logDetailDiff', {});
+
+defineContextMenu('commitCtxMenu', {
+  onAction: (action, { hash }) => {
+    switch (action) {
+      case 'copy-short':  copyToClipboard(hash.slice(0, 7)); break;
+      case 'copy-full':   copyToClipboard(hash); break;
+      case 'cherry-pick': window.openCherryPickModal(hash); break;
+      case 'branch-here': window.openCreateBranchAtModal(hash); break;
+      case 'tag-here':    window.openTagAtModal(hash); break;
+      case 'squash':      window.openSquashModal(); break;
+      case 'reset':       openResetModal(hash); break;
+      case 'revert':      revertCommit(hash); break;
+    }
+  },
+});
+
+defineList('commitLog', {
+  renderItem: _renderLogItem,
+  onActivate: (c, idx, e) => {
+    if (e?.target?.dataset.action === 'copy-hash') { copyToClipboard(c.hash); return; }
+    showCommitDetail(c.hash, c.message, c.author_name, c.date);
+  },
+  onCtxMenu: (e, c) => commitCtxShow(e, c.hash, c.message),
+});

@@ -64,36 +64,56 @@ Settings are stored in **`app-config.json`** (auto-created, git-ignored). You ca
 
 ```
 git-visual-manager/
-├── server.js            # Express entry — mounts routers, serves static files
+├── server.js               # Express entry — mounts routers, serves static files
 ├── lib/
-│   ├── config.js        # loadConfig / saveConfig helpers
-│   └── git.js           # git(repoPath) helper (simple-git wrapper)
+│   ├── config.js           # loadConfig / saveConfig helpers
+│   ├── git.js              # git(repoPath) helper (simple-git wrapper)
+│   ├── git-errors.js       # handleGitError — normalizes git errors to user messages
+│   ├── validation.js       # input parameter validation
+│   ├── logger.js           # logging
+│   └── platforms/          # PR clients (github.js, gitlab.js, bitbucket.js, gitea.js)
 ├── routes/
-│   ├── config.js        # /api/config — app settings
-│   ├── repo.js          # /api/repo/* — core repo operations
-│   ├── branches.js      # /api/repo/branch/* + merge + cherry-pick
-│   ├── tags.js          # /api/repo/tag/*
-│   ├── stash.js         # /api/repo/stash/*
-│   ├── recover.js       # /api/repo/recover/* — fsck + reflog recovery
-│   ├── pr.js            # /api/pr/* — GitHub/Bitbucket/GitLab/Gitea PRs
-│   └── fs.js            # /api/fs/* — filesystem browser
+│   ├── config.js           # /api/config — app settings + session tabs
+│   ├── repo-core.js        # /api/repo — check, init, info, status, diff, stage, commit, reset
+│   ├── repo-commits.js     # /api/repo — log, show commit, cherry-pick, revert, blame
+│   ├── repo-remote.js      # /api/repo — push, pull, fetch, clone, remote CRUD
+│   ├── repo-staging.js     # /api/repo — stage-hunk, discard, conflict resolution
+│   ├── branches.js         # /api/repo/branch/* + merge + rebase + cherry-pick + tracking
+│   ├── tags.js             # /api/repo/tag/*
+│   ├── stash.js            # /api/repo/stash/*
+│   ├── recover.js          # /api/repo/recover/* — fsck + reflog recovery
+│   ├── pr.js               # /api/pr/* — GitHub/Bitbucket/GitLab/Gitea PRs
+│   └── fs.js               # /api/fs/* — filesystem browser
 ├── public/
-│   ├── index.html       # Single-page app shell
-│   ├── app.js           # Vanilla JS frontend (no bundler)
-│   ├── style.css        # @import entry — delegates to styles/*.css
-│   └── styles/
-│       ├── base.css         # Variables, reset, buttons
-│       ├── layout.css       # Header, sidebar, main panel, tab-nav
-│       ├── changes.css      # Changes tab, file items, diff view
-│       ├── log.css          # Log/graph, PRs tab, badges
-│       ├── modals.css       # Modals, toasts, forms, overlays
-│       ├── toolbar.css      # Toolbar, side-nav, resizers
-│       └── components.css   # Context menus, recovery, file-select, syntax
+│   ├── index.html          # Single-page app shell
+│   ├── js/                 # Frontend ES Modules (no bundler)
+│   │   ├── init.js         # Bootstrap, global event bindings, keyboard shortcuts
+│   │   ├── state.js        # Multi-tab state via Proxy
+│   │   ├── bus.js          # Event bus (emit/on)
+│   │   ├── api.js          # fetch wrapper with repoPath and per-tab AbortController
+│   │   ├── diff.js         # Diff render, hunk staging, clearLastDiff()
+│   │   ├── files*.js       # Changes panel (render, select, ops, history, gitignore)
+│   │   ├── branches*.js    # Branches panel (render, ctx-menu, ops)
+│   │   ├── gvm/            # Reusable UI components (GvmList, GvmEditor, GvmPane, GvmContextMenu)
+│   │   └── ...             # log, commit, sync, repo, tabs, stash, tags, pr, settings, reflog
+│   └── styles/             # Modular CSS (@import from style.css)
+│       ├── base.css        # Variables, reset, buttons
+│       ├── layout.css      # Header, sidebar, main panel, tab-nav
+│       ├── changes.css     # Changes tab, file items, diff view
+│       ├── log.css         # Log/graph, PRs tab, badges
+│       ├── modals.css      # Modals, toasts, forms, overlays
+│       ├── toolbar.css     # Toolbar, side-nav, resizers
+│       └── components.css  # Context menus, recovery, file-select, syntax
 ├── electron/
-│   ├── main.js          # Electron entry — splash, tray, window lifecycle
-│   ├── splash.html      # Frameless splash screen
-│   └── icons/           # Drop custom PNG/ICO/ICNS icons here
-├── app-config.json      # Runtime config (auto-created, not committed)
+│   ├── main.js             # Electron main process — splash, tray, BrowserWindow
+│   ├── splash.html         # Frameless splash screen
+│   └── icons/              # Custom icons (icon16/32/256.png)
+├── tests/
+│   └── lib/                # Unit tests (no external dependencies)
+│       ├── validation.test.js
+│       ├── git-errors.test.js
+│       └── config.test.js
+├── app-config.json         # Runtime config (auto-created, never commit)
 └── package.json
 ```
 

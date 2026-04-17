@@ -294,4 +294,74 @@ router.get('/blame', async (req, res) => {
   }
 });
 
+// ─── Conflict 3-way editor ────────────────────────────────────────────────────
+
+function parseConflictBlocks(text) {
+  const lines  = text.split('\n');
+  const blocks = [];
+  let mode     = 'common'; // 'common' | 'ours' | 'base' | 'theirs'
+  let common   = [];
+  let ours     = [];
+  let base     = [];
+  let theirs   = [];
+
+  const flush = () => {
+    if (common.length) { blocks.push({ type: 'common', lines: common }); common = []; }
+  };
+
+  for (const line of lines) {
+    if (line.startsWith('<<<<<<<')) {
+      flush();
+      mode = 'ours';
+    } else if (line.startsWith('|||||||') && mode === 'ours') {
+      mode = 'base';
+    } else if (line === '=======' && (mode === 'ours' || mode === 'base')) {
+      mode = 'theirs';
+    } else if (line.startsWith('>>>>>>>') && mode === 'theirs') {
+      blocks.push({ type: 'conflict', ours: ours.join('\n'), base: base.join('\n'), theirs: theirs.join('\n') });
+      ours = []; base = []; theirs = [];
+      mode = 'common';
+    } else {
+      if (mode === 'common') common.push(line);
+      else if (mode === 'ours') ours.push(line);
+      else if (mode === 'base') base.push(line);
+      else if (mode === 'theirs') theirs.push(line);
+    }
+  }
+  if (common.length) blocks.push({ type: 'common', lines: common });
+  return blocks;
+}
+
+router.get('/conflict/content', (req, res) => {
+  const { repoPath, file } = req.query;
+  if (!file || typeof file !== 'string' || file.startsWith('-')) {
+    return res.status(400).json({ error: 'Ruta de archivo inválida' });
+  }
+  try {
+    const absPath = path.resolve(repoPath, file);
+    if (!absPath.startsWith(path.resolve(repoPath))) return res.status(400).json({ error: 'Ruta fuera del repositorio' });
+    const raw    = fs.readFileSync(absPath, 'utf8');
+    const blocks = parseConflictBlocks(raw);
+    res.json({ blocks, hasConflicts: blocks.some(b => b.type === 'conflict') });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/conflict/resolve', async (req, res) => {
+  const { repoPath, file, content } = req.body;
+  if (!file || typeof file !== 'string' || file.startsWith('-')) {
+    return res.status(400).json({ error: 'Ruta de archivo inválida' });
+  }
+  try {
+    const absPath = path.resolve(repoPath, file);
+    if (!absPath.startsWith(path.resolve(repoPath))) return res.status(400).json({ error: 'Ruta fuera del repositorio' });
+    fs.writeFileSync(absPath, content, 'utf8');
+    await git(repoPath).add(file);
+    res.json({ success: true });
+  } catch (e) {
+    handleGitError(res, e);
+  }
+});
+
 module.exports = router;

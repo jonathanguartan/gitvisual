@@ -160,7 +160,10 @@
         </div>
         <div id="repoInfo" class="repo-info-box"></div>
       </div>
-      <div class="resizer resizer-row" id="repoResizer"></div>
+      <div class="pane-resizer" id="repoResizer"
+           data-dir="row" data-target="#sectionRepo"
+           data-min="28" data-max="300" data-storage="sectionRepo"
+           data-uncollapse="true"></div>
 
       <!-- Branches -->
       <div class="side-section side-branches" id="sectionBranches">
@@ -179,7 +182,10 @@
         </div>
         <div id="branchList" class="branch-list"></div>
       </div>
-      <div class="resizer resizer-row" id="branchesResizer"></div>
+      <div class="pane-resizer" id="branchesResizer"
+           data-dir="row" data-target="#sectionBranches"
+           data-min="60" data-max="600" data-storage="sectionBranches"
+           data-uncollapse="true"></div>
 
       <!-- Tags -->
       <div class="side-section side-tags" id="sectionTags">
@@ -190,11 +196,15 @@
             <button class="section-toggle" onclick="toggleSection('sectionTags')" title="Colapsar/Expandir">⌄</button>
           </div>
         </div>
-        <div id="tagList" class="tag-list">
-          <div class="tag-empty">Sin etiquetas</div>
+        <div id="tagList" class="tag-list"
+             data-gvm-list data-gvm-selmode="none"
+             data-gvm-empty="Sin etiquetas">
         </div>
       </div>
-      <div class="resizer resizer-row" id="tagsResizer"></div>
+      <div class="pane-resizer" id="tagsResizer"
+           data-dir="row" data-target="#sectionTags"
+           data-min="28" data-max="400" data-storage="sectionTags"
+           data-uncollapse="true"></div>
 
       <!-- Stash -->
       <div class="side-section side-stash" id="sectionStash">
@@ -205,15 +215,18 @@
             <button class="section-toggle" onclick="toggleSection('sectionStash')" title="Colapsar/Expandir">⌄</button>
           </div>
         </div>
-        <div id="stashList" class="stash-list">
-          <div class="stash-empty">Sin stashes</div>
+        <div id="stashList" class="stash-list"
+             data-gvm-list data-gvm-selmode="single"
+             data-gvm-empty="Sin stashes">
         </div>
       </div>
 
       <!-- Actions removed from here (moved to header) -->
     </aside>
 
-    <div class="resizer resizer-col" id="sidebarResizer"></div>
+    <div class="pane-resizer" id="sidebarResizer"
+         data-dir="col" data-target=".sidebar"
+         data-min="160" data-max="420" data-storage="sidebar"></div>
 
     <!-- ── MAIN PANEL ───────────────────────────────────────────── -->
     <main class="main-panel">
@@ -242,15 +255,16 @@
                      placeholder="Buscar archivo…"
                      oninput="setFileSearch(this.value)" />
             </div>
-            <div id="stagedSection" class="files-section">
-              <div class="files-hdr">
-                <span>Staged <span id="stagedCount" class="badge">0</span></span>
-                <div class="hdr-actions">
+            <div id="stagedSection" class="files-section panel-collapsible">
+              <div class="panel-hdr">
+                <span class="panel-hdr-title">Staged <span id="stagedCount" class="badge">0</span></span>
+                <div class="panel-hdr-actions">
                   <button id="btnStagedExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('staged')"   title="Expandir todo">⊕</button>
                   <button id="btnStagedCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('staged')" title="Colapsar todo">⊖</button>
                   <button id="btnStagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('staged')" title="Vista árbol">⊞</button>
                   <button id="btnUnstageAll" class="btn btn-xs">Quitar todo</button>
-                  <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('stagedSection')" title="Maximizar">⤢</button>
+                  <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="stagedSection" title="Colapsar">⌄</button>
+                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="stagedSection" title="Maximizar">⤢</button>
                 </div>
               </div>
               <div id="stagedSelBar" class="sel-bar" style="display:none">
@@ -264,17 +278,20 @@
                 ondragleave="fileDragLeave(event)"
                 ondrop="fileDrop(event,'staged')"></div>
             </div>
-            <div class="resizer resizer-row" id="stagedResizer"></div>
-            <div id="unstagedSection" class="files-section">
-              <div class="files-hdr">
-                <span>Pendientes <span id="unstagedCount" class="badge badge-warn">0</span></span>
-                <div class="hdr-actions">
+            <div class="pane-resizer" id="stagedResizer"
+                 data-dir="row" data-target="#stagedSection"
+                 data-min="60" data-max="600" data-storage="staged"></div>
+            <div id="unstagedSection" class="files-section panel-collapsible">
+              <div class="panel-hdr">
+                <span class="panel-hdr-title">Pendientes <span id="unstagedCount" class="badge badge-warn">0</span></span>
+                <div class="panel-hdr-actions">
                   <button id="btnUnstagedExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('unstaged')"   title="Expandir todo">⊕</button>
                   <button id="btnUnstagedCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('unstaged')" title="Colapsar todo">⊖</button>
                   <button id="btnUnstagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('unstaged')" title="Vista árbol">⊞</button>
                   <button id="btnDiscardAll" class="btn btn-xs btn-secondary">Descartar todo</button>
                   <button id="btnStageAll" class="btn btn-xs btn-primary">Stage todo</button>
-                  <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('unstagedSection')" title="Maximizar">⤢</button>
+                  <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="unstagedSection" title="Colapsar">⌄</button>
+                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="unstagedSection" title="Maximizar">⤢</button>
                 </div>
               </div>
               <div id="unstagedSelBar" class="sel-bar" style="display:none">
@@ -291,20 +308,22 @@
 
             <!-- Sección Sin Cambios (solo visible en modo "Todos los archivos") -->
             <div id="cleanSection" class="files-section" style="display:none">
-              <div class="files-hdr">
-                <span>Sin cambios <span id="cleanCount" class="badge badge-empty">0</span></span>
-                <div class="hdr-actions">
+              <div class="panel-hdr">
+                <span class="panel-hdr-title">Sin cambios <span id="cleanCount" class="badge badge-empty">0</span></span>
+                <div class="panel-hdr-actions">
                   <button id="btnCleanExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('clean')"   title="Expandir todo">⊕</button>
                   <button id="btnCleanCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('clean')" title="Colapsar todo">⊖</button>
                   <button id="btnCleanView" class="btn btn-xs btn-icon" onclick="toggleFileView('clean')" title="Vista árbol">⊞</button>
-                  <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('cleanSection')" title="Maximizar">⤢</button>
+                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="cleanSection" title="Maximizar">⤢</button>
                 </div>
               </div>
               <div id="cleanFiles" class="file-list"></div>
             </div>
           </div>
 
-          <div class="resizer resizer-col" id="filesResizer"></div>
+          <div class="pane-resizer" id="filesResizer"
+               data-dir="col" data-target=".files-col"
+               data-min="160" data-max="600" data-storage="filesCol"></div>
 
           <!-- Commit + Diff column -->
           <div class="commit-col" id="commitCol">
@@ -326,9 +345,17 @@
                 <button id="btnCommit" class="btn btn-primary btn-flex">✓ Commit</button>
               </div>
             </div>
-            <div id="diffPanel" class="diff-panel">
-              <div class="diff-panel-hdr">
-                <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('diffPanel')" title="Maximizar diff">⤢</button>
+            <div id="diffPanel" class="diff-panel panel-collapsible">
+              <div class="panel-hdr">
+                <span class="panel-hdr-title">Diff</span>
+                <div class="panel-hdr-actions">
+                  <span class="hunk-nav-btns">
+                    <button class="btn btn-xs btn-icon" onclick="navigateHunk('prev')" title="Hunk anterior (Alt+↑)">↑</button>
+                    <button class="btn btn-xs btn-icon" onclick="navigateHunk('next')" title="Hunk siguiente (Alt+↓)">↓</button>
+                  </span>
+                  <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="diffPanel" title="Colapsar">⌄</button>
+                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="diffPanel" title="Maximizar diff">⤢</button>
+                </div>
               </div>
               <div id="diffView" class="diff-view">
                 <div class="diff-hint">Selecciona un archivo para ver los cambios</div>
@@ -340,14 +367,20 @@
 
       <!-- ── TAB: STASH DIFF ── -->
       <div id="tab-stash" class="tab-pane">
-        <div class="stash-view-hdr">
-          <span id="stashViewTitle" class="stash-view-title"></span>
-          <button class="btn btn-xs btn-secondary" onclick="switchToPanel('changes')">✕ Cerrar</button>
+        <div class="panel-hdr">
+          <span class="panel-hdr-title" id="stashViewTitle"></span>
+          <div class="panel-hdr-actions">
+            <button class="btn btn-xs btn-secondary" onclick="switchToPanel('changes')">✕ Cerrar</button>
+          </div>
         </div>
         <div class="stash-view-grid">
-          <div id="stashFileList" class="stash-view-files file-list"></div>
-          <div class="resizer resizer-col" id="stashResizer"></div>
-          <div id="stashDiffView" class="diff-view">
+          <div id="stashFileList" class="stash-view-files file-list"
+               data-gvm-list data-gvm-selmode="single"
+               data-gvm-empty="Sin archivos"></div>
+          <div class="pane-resizer" id="stashResizer"
+               data-dir="col" data-target=".stash-view-files"
+               data-min="140" data-max="480" data-storage="stashFiles"></div>
+          <div id="stashDiffView" class="diff-view" data-gvm-editor>
             <div class="diff-hint">Selecciona un archivo</div>
           </div>
         </div>
@@ -363,31 +396,46 @@
         </div>
         <div class="log-split">
           <!-- Lista de commits -->
-          <div class="log-left" id="logLeft">
-            <div class="log-panel-bar">
-              <span class="log-panel-label">Commits</span>
-              <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('logLeft')" title="Maximizar">⤢</button>
+          <div class="log-left panel-collapsible" id="logLeft">
+            <div class="panel-hdr">
+              <span class="panel-hdr-title">Commits</span>
+              <div class="panel-hdr-actions">
+                <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="logLeft" title="Colapsar">⌄</button>
+                <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="logLeft" title="Maximizar">⤢</button>
+              </div>
             </div>
             <div class="log-container">
               <div class="log-scroll-area">
                 <svg id="logGraph" class="log-graph-svg"></svg>
-                <div id="commitLog" class="log-list"></div>
+                <div id="commitLog" class="log-list"
+                     data-gvm-list data-gvm-selmode="single"
+                     data-gvm-virtual data-gvm-item-height="44"
+                     data-gvm-scroll=".log-scroll-area"></div>
               </div>
             </div>
           </div>
-          <div class="resizer resizer-col" id="logResizer"></div>
+          <div class="pane-resizer" id="logResizer"
+               data-dir="row" data-target="#logLeft"
+               data-min="80" data-max="700" data-storage="logLeft"></div>
           <!-- Panel de detalle del commit -->
-          <div class="log-right" id="logDetail">
-            <div class="log-panel-bar">
-              <span class="log-panel-label">Detalle</span>
-              <button class="btn btn-xs btn-icon btn-maximize" onclick="togglePanelMaximize('logDetail')" title="Maximizar">⤢</button>
+          <div class="log-right panel-collapsible" id="logDetail">
+            <div class="panel-hdr">
+              <span class="panel-hdr-title">Detalle</span>
+              <div class="panel-hdr-actions">
+                <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="logDetail" title="Colapsar">⌄</button>
+                <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="logDetail" title="Maximizar">⤢</button>
+              </div>
             </div>
             <div class="log-detail-empty" id="logDetailEmpty">Selecciona un commit</div>
             <div id="logDetailContent" style="display:none">
               <div class="log-detail-hdr" id="logDetailHdr"></div>
+              <div class="log-detail-stats" id="logDetailStats"></div>
               <div class="log-detail-files" id="logDetailFiles"></div>
-              <div class="resizer resizer-row" id="logDetailResizer" style="display:none"></div>
-              <div class="log-detail-diff" id="logDetailDiff"></div>
+              <div class="pane-resizer" id="logDetailResizer"
+                   data-dir="row" data-target="#logDetailFiles"
+                   data-min="40" data-max="500" data-storage="logDetailFiles"
+                   style="display:none"></div>
+              <div class="log-detail-diff" id="logDetailDiff" data-gvm-editor></div>
             </div>
           </div>
         </div>
@@ -395,9 +443,11 @@
 
       <!-- ── TAB: PRS ── -->
       <div id="tab-prs" class="tab-pane">
-        <div class="prs-header">
-          <span id="prRepoLabel" class="pr-repo-label"></span>
-          <button id="btnRefreshPRs" class="btn btn-xs btn-secondary">↻ Actualizar</button>
+        <div class="panel-hdr">
+          <span class="panel-hdr-title" id="prRepoLabel"></span>
+          <div class="panel-hdr-actions">
+            <button id="btnRefreshPRs" class="btn btn-xs btn-secondary">↻ Actualizar</button>
+          </div>
         </div>
         <div id="prsList" class="prs-list"></div>
       </div>
@@ -619,13 +669,60 @@
           </div>
         </div>
         <div class="form-row">
-          <label>Descripción</label>
+          <label class="label-with-actions">
+            Descripción
+            <span class="pr-template-btns">
+              <button type="button" class="btn btn-xs" onclick="applyPRTemplate('feat')" title="Plantilla: nueva funcionalidad">feat</button>
+              <button type="button" class="btn btn-xs" onclick="applyPRTemplate('fix')" title="Plantilla: corrección de bug">fix</button>
+              <button type="button" class="btn btn-xs" onclick="applyPRTemplate('refactor')" title="Plantilla: refactorización">refactor</button>
+              <button type="button" class="btn btn-xs" onclick="applyPRTemplate('general')" title="Plantilla general">…</button>
+            </span>
+          </label>
           <textarea id="prBody" rows="5" placeholder="Describe los cambios incluidos…"></textarea>
         </div>
       </div>
       <div class="modal-ftr">
         <button class="btn btn-secondary" data-close="modalPR">Cancelar</button>
         <button id="btnSubmitPR" class="btn btn-primary">Crear PR en GitHub</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Blame / Autoría -->
+  <div id="modalBlame" class="modal-bg">
+    <div class="modal modal-wide" id="modalBlameBox">
+      <div class="modal-hdr">
+        <h2>Autoría — <span id="blameFileName" style="font-weight:normal;font-size:13px;color:var(--tx2)"></span></h2>
+        <div style="display:flex;gap:6px">
+          <button id="btnBlameMaximize" class="btn btn-icon" onclick="toggleBlameMaximize()" title="Maximizar">⛶</button>
+          <button class="btn btn-icon close-btn" data-close="modalBlame">✕</button>
+        </div>
+      </div>
+      <div class="modal-body" style="padding:0;overflow:auto">
+        <div id="blameContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Squash commits -->
+  <div id="modalSquash" class="modal-bg">
+    <div class="modal modal-wide">
+      <div class="modal-hdr">
+        <h2>Squash de commits</h2>
+        <button class="btn btn-icon close-btn" data-close="modalSquash">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="form-hint">Selecciona los commits consecutivos (desde HEAD) que quieres fusionar en uno solo.</p>
+        <div id="squashChecklist" class="squash-checklist"></div>
+        <div class="form-row mt-2">
+          <label>Nuevo mensaje del commit</label>
+          <textarea id="squashMessage" rows="3" placeholder="Mensaje del commit combinado…"></textarea>
+        </div>
+        <div id="squashSummary" class="squash-summary"></div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" data-close="modalSquash">Cancelar</button>
+        <button class="btn btn-danger" data-action="confirmSquash">⊕ Hacer squash</button>
       </div>
     </div>
   </div>
@@ -804,6 +901,24 @@
     </div>
   </div>
 
+  <!-- Status bar -->
+  <div id="statusBar" class="status-bar" style="display:none">
+    <span id="sbBranch" class="sb-item sb-branch" title="Rama actual"></span>
+    <span id="sbAhead"  class="sb-item sb-ahead"  title="Commits adelante del remote" style="display:none"></span>
+    <span id="sbBehind" class="sb-item sb-behind" title="Commits atrás del remote"    style="display:none"></span>
+    <span class="sb-spacer"></span>
+    <span id="sbPath"   class="sb-item sb-path"   title="Ruta del repositorio"></span>
+  </div>
+
+  <!-- Diff search bar (Ctrl+F) -->
+  <div id="diffSearchBar" class="diff-search-bar" style="display:none">
+    <input id="diffSearchInput" class="diff-search-input" type="text" placeholder="Buscar en diff…" autocomplete="off" />
+    <span id="diffSearchCount" class="diff-search-count"></span>
+    <button class="btn btn-xs btn-icon" id="diffSearchPrev" title="Anterior (Shift+Enter)">↑</button>
+    <button class="btn btn-xs btn-icon" id="diffSearchNext" title="Siguiente (Enter)">↓</button>
+    <button class="btn btn-xs btn-icon" id="diffSearchClose" title="Cerrar (Esc)">✕</button>
+  </div>
+
   <!-- Toast container -->
   <div id="toasts" class="toast-wrap"></div>
 
@@ -899,6 +1014,32 @@
     </div>
   </div>
 
+  <!-- Conflict 3-way Editor Modal -->
+  <div id="modalConflict" class="modal-bg">
+    <div class="modal modal-conflict">
+      <div class="modal-hdr">
+        <h2>⚡ Resolver conflicto</h2>
+        <span id="conflictFileName" class="modal-subtitle"></span>
+        <button class="btn btn-icon close-btn" data-close="modalConflict">✕</button>
+      </div>
+      <div class="conflict-editor-wrap">
+        <div class="conflict-col-hdr">
+          <div class="conflict-col-label conflict-label-ours">⬆ Nuestros (HEAD)</div>
+          <div class="conflict-col-label conflict-label-result">✓ Resultado</div>
+          <div class="conflict-col-label conflict-label-theirs">⬇ Ellos (Incoming)</div>
+        </div>
+        <div id="conflictBlocks" class="conflict-blocks"></div>
+      </div>
+      <div class="modal-ftr">
+        <button class="btn btn-secondary" onclick="conflictAcceptAll('ours')">⬆ Todo nuestro</button>
+        <button class="btn btn-secondary" onclick="conflictAcceptAll('theirs')">⬇ Todo ellos</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-secondary" data-close="modalConflict">Cancelar</button>
+        <button class="btn btn-primary" onclick="conflictSaveAndStage()">💾 Guardar y preparar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Recovery Modal -->
   <div id="modalRecover" class="modal-bg">
     <div class="modal modal-recover">
@@ -945,13 +1086,13 @@
   </div>
 
   <!-- File Context Menu -->
-  <div id="fileCtxMenu" class="ctx-menu" style="display:none"></div>
+  <div id="fileCtxMenu" class="ctx-menu" data-gvm-ctx-menu style="display:none"></div>
 
   <!-- Commit Context Menu -->
-  <div id="commitCtxMenu" class="ctx-menu" style="display:none"></div>
+  <div id="commitCtxMenu" class="ctx-menu" data-gvm-ctx-menu style="display:none"></div>
 
   <!-- Branch Context Menu -->
-  <div id="branchCtxMenu" class="branch-ctx-menu ctx-menu" style="display:none"></div>
+  <div id="branchCtxMenu" class="branch-ctx-menu ctx-menu" data-gvm-ctx-menu style="display:none"></div>
 
   <!-- Rename Branch Modal -->
   <div id="modalRenameBranch" class="modal-bg">
@@ -1040,9 +1181,11 @@
             <span class="fh-list-title">Commits</span>
             <button class="btn btn-xs btn-icon" id="btnFhListToggle" onclick="toggleFhList()" title="Colapsar lista">◁</button>
           </div>
-          <div id="fileHistoryList" class="fh-list"></div>
+          <div id="fileHistoryList" class="fh-list"
+               data-gvm-list data-gvm-selmode="none"
+               data-gvm-empty="Sin historial"></div>
         </div>
-        <div id="fileHistoryDiff" class="fh-diff diff-view"></div>
+        <div id="fileHistoryDiff" class="fh-diff diff-view" data-gvm-editor></div>
       </div>
     </div>
   </div>
