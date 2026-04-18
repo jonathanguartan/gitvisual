@@ -162,10 +162,14 @@ router.post('/branch/rebase', async (req, res) => {
 
 // Actualiza una rama local desde su remota sin hacer checkout (fast-forward only)
 router.post('/branch/pull-ff', async (req, res) => {
-  const { repoPath, branch, remote = 'origin' } = req.body;
+  const { repoPath, branch, remote = 'origin', remoteBranchName } = req.body;
   if (!isValidRefName(branch)) return res.status(400).json({ error: 'Nombre de rama inválido' });
+  if (remoteBranchName && !isValidRefName(remoteBranchName)) return res.status(400).json({ error: 'Nombre de rama remota inválido' });
+  // Si se indica una rama remota distinta: git fetch origin other:local
+  // Si no: git fetch origin feature:feature (misma rama)
+  const refSpec = remoteBranchName ? `${remoteBranchName}:${branch}` : `${branch}:${branch}`;
   try {
-    await git(repoPath).raw(['fetch', remote, `${branch}:${branch}`]);
+    await git(repoPath).raw(['fetch', remote, refSpec]);
     res.json({ success: true });
   } catch (e) {
     if (e.message.includes('non-fast-forward') || e.message.includes('rejected'))
@@ -319,6 +323,30 @@ router.get('/branches/merged', async (req, res) => {
       .map(b => b.trim().replace(/^\*\s*/, ''))
       .filter(b => b && !protect.has(b));
     res.json({ branches });
+  } catch (e) {
+    handleGitError(res, e);
+  }
+});
+
+// Squash de los últimos N commits en uno solo
+router.post('/branch/squash', async (req, res) => {
+  const { repoPath, count, message } = req.body;
+  const n = parseInt(count);
+  if (!n || n < 2) return res.status(400).json({ error: 'Selecciona al menos 2 commits para hacer squash' });
+  if (!message?.trim()) return res.status(400).json({ error: 'El mensaje del commit no puede estar vacío' });
+  try {
+    const g = git(repoPath);
+    // Guardar HEAD original para rollback si el commit falla tras el reset
+    const origHead = (await g.raw(['rev-parse', 'HEAD'])).trim();
+    await g.raw(['reset', '--soft', `HEAD~${n}`]);
+    try {
+      await g.commit(message.trim());
+      res.json({ success: true });
+    } catch (commitErr) {
+      // Rollback: restaurar los commits que se deshicieron
+      try { await g.raw(['reset', '--soft', origHead]); } catch (_) {}
+      handleGitError(res, commitErr);
+    }
   } catch (e) {
     handleGitError(res, e);
   }

@@ -1,3 +1,4 @@
+import { emit } from './bus.js';
 import { get, post } from './api.js';
 import { escHtml, escAttr, toast, openModal, closeModal } from './utils.js';
 
@@ -17,7 +18,7 @@ export async function saveGitignore() {
     await post('/repo/gitignore', { content });
     closeModal('modalGitignore');
     toast('.gitignore guardado ✓', 'success');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -118,6 +119,6 @@ export async function confirmAddToGitignore() {
     await post('/repo/gitignore', { content: newContent });
     closeModal('modalAddGitignore');
     toast(`"${pattern}" añadido a .gitignore ✓`, 'success');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
   } catch (e) { toast(e.message, 'error'); }
 }

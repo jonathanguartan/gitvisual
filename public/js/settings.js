@@ -1,7 +1,9 @@
+import { emit } from './bus.js';
 import { state } from './state.js';
 import { get, post, opPost, api } from './api.js';
 import { escHtml, escAttr, toast, openModal, closeModal } from './utils.js';
 import { startAutoFetch } from './sync.js';
+import { isValidRefName } from './validation.js';
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
@@ -14,7 +16,84 @@ export function switchSettingsTab(tab) {
   document.getElementById('settingsTabCuenta').classList.toggle('active', tab === 'cuenta');
   const remotosTab = document.getElementById('settingsTabRemotos');
   if (remotosTab) remotosTab.classList.toggle('active', tab === 'remotos');
-  if (tab === 'remotos') loadRemotesTab();
+  const repoTab = document.getElementById('settingsTabRepositorio');
+  if (repoTab) repoTab.classList.toggle('active', tab === 'repositorio');
+  if (tab === 'remotos')     loadRemotesTab();
+  if (tab === 'repositorio') _loadRepoTab();
+}
+
+// ─── Per-repo config tab ──────────────────────────────────────────────────────
+
+async function _loadRepoTab() {
+  const noRepo = document.getElementById('repoSettingsNoRepo');
+  const body   = document.getElementById('repoSettingsBody');
+  if (!state.repoPath) {
+    noRepo.style.display = '';
+    body.style.display   = 'none';
+    return;
+  }
+  noRepo.style.display = 'none';
+  body.style.display   = '';
+  document.getElementById('repoSettingsPathLabel').textContent = state.repoPath;
+
+  try {
+    const { global: g, overrides } = await get('/config/repo');
+
+    // Checkboxes: si hay override lo usamos, si no caemos al global
+    document.getElementById('repoCfgRebaseOnPull').checked =
+      overrides.rebaseOnPull !== undefined ? !!overrides.rebaseOnPull : !!g.rebaseOnPull;
+    document.getElementById('repoCfgAutoStash').checked =
+      overrides.autoStash !== undefined ? !!overrides.autoStash : !!g.autoStash;
+
+    // Text input: vacío = heredado de global
+    document.getElementById('repoCfgMainBranch').value =
+      overrides.mainBranch !== undefined ? overrides.mainBranch : '';
+    document.getElementById('repoCfgMainBranch').placeholder =
+      `heredado de global (${g.mainBranch || 'main'})`;
+
+    // Selects: valor vacío = heredado de global
+    const diffSel = document.getElementById('repoCfgDiffContext');
+    diffSel.value = overrides.diffContext !== undefined ? String(overrides.diffContext) : '';
+
+    const logSel = document.getElementById('repoCfgLogLimit');
+    logSel.value = overrides.logLimit !== undefined ? String(overrides.logLimit) : '';
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+export async function saveRepoSettings() {
+  if (!state.repoPath) { toast('No hay repositorio abierto', 'warn'); return; }
+
+  const mainBranch = document.getElementById('repoCfgMainBranch').value.trim();
+  if (mainBranch && !isValidRefName(mainBranch)) {
+    toast('Nombre de rama principal inválido.', 'warn'); return;
+  }
+
+  const payload = { repoPath: state.repoPath };
+  payload.rebaseOnPull = document.getElementById('repoCfgRebaseOnPull').checked;
+  payload.autoStash    = document.getElementById('repoCfgAutoStash').checked;
+  if (mainBranch) payload.mainBranch = mainBranch;
+
+  const diffVal = document.getElementById('repoCfgDiffContext').value;
+  if (diffVal) payload.diffContext = parseInt(diffVal, 10);
+
+  const logVal = document.getElementById('repoCfgLogLimit').value;
+  if (logVal) payload.logLimit = parseInt(logVal, 10);
+
+  try {
+    await api('POST', '/config/repo/save', payload);
+    toast('Configuración del repositorio guardada ✓', 'success');
+    emit('repo:refresh');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+export async function clearRepoSettings() {
+  if (!state.repoPath) return;
+  if (!confirm('¿Eliminar la configuración específica de este repositorio y volver a los ajustes globales?')) return;
+  try {
+    await api('POST', '/config/repo/clear', { repoPath: state.repoPath });
+    await _loadRepoTab();
+    toast('Configuración del repositorio restablecida a global ✓', 'info');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 // ─── Platform settings (dynamic) ─────────────────────────────────────────────
@@ -140,6 +219,7 @@ export async function saveSettings() {
   const diffContext      = parseInt(document.getElementById('cfgDiffContext').value, 10) || 3;
   const logLimit         = parseInt(document.getElementById('cfgLogLimit').value, 10) || 100;
   const mainBranch       = document.getElementById('cfgMainBranch').value.trim() || 'main';
+  if (!isValidRefName(mainBranch)) { toast('Nombre de rama principal inválido.', 'warn'); return; }
 
   // Use cached platform metadata from openSettingsModal render.
   // If rendering failed (_platformsMeta is null), skip platforms to avoid overwriting existing tokens.
@@ -175,7 +255,7 @@ export async function saveSettings() {
     }
 
     closeModal('modalSettings');
-    await window.refreshAll();
+    emit('repo:refresh');
     toast('Configuración guardada ✓', 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -260,7 +340,7 @@ function renderRecoverBranches(branches) {
 export async function recoverFromStash(fullHash) {
   try {
     await opPost('/repo/recover/stash-apply', { fullHash }, 'Aplicando stash recuperado…');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     closeModal('modalRecover');
     toast('Stash aplicado correctamente', 'success');
   } catch (e) { toast(e.message, 'error'); }
@@ -287,7 +367,7 @@ export async function recoverBranch(hash, name) {
   }
   try {
     await opPost('/repo/recover/branch', { hash, name: branchName }, 'Restaurando rama…');
-    await window.refreshBranches();
+    emit('repo:refresh-branches');
     closeModal('modalRecover');
     toast(`Rama "${branchName}" restaurada`, 'success');
   } catch (e) { toast(e.message, 'error'); }
@@ -322,13 +402,13 @@ export async function confirmCherryPick() {
 
   if (!commitHash) { toast('No se seleccionó ningún commit', 'warn'); return; }
   if (!targetBranch) { toast('Selecciona una rama o introduce un nombre para una nueva rama', 'warn'); return; }
-  if (newBranchName && !/^[a-zA-Z0-9._/\-]+$/.test(newBranchName)) { toast('Nombre de rama inválido (letras, números, /, -, _)', 'warn'); return; }
+  if (newBranchName && !isValidRefName(newBranchName)) { toast('Nombre de rama inválido. Evita espacios, .., tildes, y caracteres especiales.', 'warn'); return; }
 
   try {
     toast(`Aplicando cherry-pick del commit ${commitHash.slice(0, 7)}…`, 'info');
     await post('/repo/cherry-pick', { commitHash, targetBranch });
     closeModal('modalCherryPick');
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(`Cherry-pick de ${commitHash.slice(0, 7)} aplicado con éxito ✓`, 'success');
   } catch (e) {
     toast(`Error en cherry-pick: ${e.message}`, 'error');
@@ -358,7 +438,7 @@ export async function pushToProduction(branchOverride = null, mergeFromOverride 
   try {
     const result = await opPost('/repo/push-production', { productionBranch, mergeFrom }, `🚀 Push a producción (${productionBranch})…`);
     if (result === null) return false;
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(`🚀 ${result.message}`, 'success');
     return true;
   } catch (e) { toast(`Error: ${e.message}`, 'error'); return false; }
@@ -368,6 +448,8 @@ export async function pushToProduction(branchOverride = null, mergeFromOverride 
 
 window.openSettingsModal          = openSettingsModal;
 window.saveSettings               = saveSettings;
+window.saveRepoSettings           = saveRepoSettings;
+window.clearRepoSettings          = clearRepoSettings;
 window.switchSettingsTab          = switchSettingsTab;
 window.verifyPlatformCredentials  = verifyPlatformCredentials;
 window.openRecoverModal    = openRecoverModal;
@@ -422,6 +504,7 @@ export async function addRemoteFromForm() {
   const name = document.getElementById('newRemoteName')?.value.trim();
   const url  = document.getElementById('newRemoteUrl')?.value.trim();
   if (!name) { toast('Introduce un nombre para el remoto', 'warn'); return; }
+  if (!isValidRefName(name)) { toast('Nombre de remoto inválido. Evita espacios y caracteres especiales.', 'warn'); return; }
   if (!url)  { toast('Introduce la URL del remoto', 'warn'); return; }
   try {
     await post('/repo/remote/add', { name, url });
@@ -429,7 +512,7 @@ export async function addRemoteFromForm() {
     document.getElementById('newRemoteUrl').value  = '';
     toast(`Remoto "${name}" añadido ✓`, 'success');
     loadRemotesTab();
-    await window.refreshAll();
+    emit('repo:refresh');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -439,7 +522,7 @@ export async function deleteRemote(name) {
     await post('/repo/remote/delete', { name });
     toast(`Remoto "${name}" eliminado ✓`, 'info');
     loadRemotesTab();
-    await window.refreshAll();
+    emit('repo:refresh');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -450,7 +533,7 @@ export async function renameRemotePrompt(oldName) {
     await post('/repo/remote/rename', { oldName, newName });
     toast(`Remoto renombrado a "${newName}" ✓`, 'success');
     loadRemotesTab();
-    await window.refreshAll();
+    emit('repo:refresh');
   } catch (e) { toast(e.message, 'error'); }
 }
 

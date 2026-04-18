@@ -8,12 +8,12 @@
 
 // Re-exportar para que init.js pueda importar desde un solo lugar si es necesario
 export { renderBranches, renderRepoInfo, buildBranchTree, renderBranchTree, onBranchFilter, toggleBranchFolder } from './branches-render.js';
-export { checkoutBranch, checkoutRemoteBranch, createBranch, deleteBranch, confirmDeleteBranch, openRebaseModal, confirmRebase, openRenameBranchModal, confirmRenameBranch, openNewBranchModal, updateCreateBranchBtn, mergeFromRemote, conflictAbort, conflictContinue, openPullFromModal, confirmPullFrom, confirmDeleteRemoteBranch, pullBranchFF, openCreateBranchAtModal, openSetUpstreamModal, confirmSetUpstream, openCompareBranchesModal, loadBranchCompare, openMergedBranchesModal, deleteSelectedMergedBranches, viewBranchLog, checkoutNewBranchFromRemote } from './branches-ops.js';
+export { checkoutBranch, checkoutRemoteBranch, createBranch, deleteBranch, confirmDeleteBranch, openRebaseModal, confirmRebase, openRenameBranchModal, confirmRenameBranch, openNewBranchModal, updateCreateBranchBtn, mergeFromRemote, conflictAbort, conflictContinue, openPullFromModal, confirmPullFrom, confirmDeleteRemoteBranch, pullBranchFF, openCreateBranchAtModal, openSetUpstreamModal, confirmSetUpstream, openCompareBranchesModal, loadBranchCompare, openMergedBranchesModal, deleteSelectedMergedBranches, viewBranchLog, checkoutNewBranchFromRemote, openSquashModal, confirmSquash, updateSquashPreview } from './branches-ops.js';
 export { branchCtxShow, branchCtxClose, branchCtxAction } from './branches-ctx.js';
 
 // ─── Imports para window assignments ─────────────────────────────────────────
 import { renderBranches, renderRepoInfo, buildBranchTree, renderBranchTree, onBranchFilter, toggleBranchFolder } from './branches-render.js';
-import { checkoutBranch, checkoutRemoteBranch, createBranch, deleteBranch, confirmDeleteBranch, openRebaseModal, confirmRebase, openRenameBranchModal, confirmRenameBranch, openNewBranchModal, updateCreateBranchBtn, mergeFromRemote, conflictAbort, conflictContinue, openPullFromModal, confirmPullFrom, confirmDeleteRemoteBranch, pullBranchFF, openCreateBranchAtModal, openSetUpstreamModal, confirmSetUpstream, openCompareBranchesModal, loadBranchCompare, openMergedBranchesModal, deleteSelectedMergedBranches, viewBranchLog, checkoutNewBranchFromRemote } from './branches-ops.js';
+import { checkoutBranch, checkoutRemoteBranch, createBranch, deleteBranch, confirmDeleteBranch, openRebaseModal, confirmRebase, openRenameBranchModal, confirmRenameBranch, openNewBranchModal, updateCreateBranchBtn, mergeFromRemote, conflictAbort, conflictContinue, openPullFromModal, confirmPullFrom, confirmDeleteRemoteBranch, pullBranchFF, openCreateBranchAtModal, openSetUpstreamModal, confirmSetUpstream, openCompareBranchesModal, loadBranchCompare, openMergedBranchesModal, deleteSelectedMergedBranches, viewBranchLog, checkoutNewBranchFromRemote, openSquashModal, confirmSquash, updateSquashPreview } from './branches-ops.js';
 import { branchCtxShow, branchCtxClose, branchCtxAction } from './branches-ctx.js';
 
 // ─── Window assignments para handlers de HTML ────────────────────────────────
@@ -48,3 +48,6 @@ window.loadBranchCompare          = loadBranchCompare;
 window.onBranchFilter             = onBranchFilter;
 window.openMergedBranchesModal    = openMergedBranchesModal;
 window.deleteSelectedMergedBranches = deleteSelectedMergedBranches;
+window.openSquashModal    = openSquashModal;
+window.confirmSquash      = confirmSquash;
+window.updateSquashPreview = updateSquashPreview;

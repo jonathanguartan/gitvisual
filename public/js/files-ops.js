@@ -1,17 +1,20 @@
 import { post, opPost } from './api.js';
-import { escHtml, escAttr, toast, showCtxMenu, closeAllCtxMenus } from './utils.js';
+import { escHtml, escAttr, toast } from './utils.js';
 import { showDiff } from './diff.js';
 import { fileState } from './files-state.js';
+import { state } from './state.js';
+import { emit } from './bus.js';
+import { defineContextMenu, getContextMenu } from './gvm/gvm-ctx-menus.js';
 
 // ─── Single-file operations ───────────────────────────────────────────────────
 
 export async function stageFile(file) {
-  try { await opPost('/repo/stage', { files: [file] }, 'Añadiendo al stage…'); await window.refreshStatus(); }
+  try { await opPost('/repo/stage', { files: [file] }, 'Añadiendo al stage…'); emit('repo:refresh-status'); }
   catch (e) { toast(e.message, 'error'); }
 }
 
 export async function unstageFile(file) {
-  try { await opPost('/repo/unstage', { files: [file] }, 'Quitando del stage…'); await window.refreshStatus(); }
+  try { await opPost('/repo/unstage', { files: [file] }, 'Quitando del stage…'); emit('repo:refresh-status'); }
   catch (e) { toast(e.message, 'error'); }
 }
 
@@ -19,7 +22,7 @@ export async function discardFile(file) {
   if (!confirm(`¿Descartar todos los cambios en "${file}"? Esta acción no se puede deshacer.`)) return;
   try {
     await opPost('/repo/discard', { files: [file] }, 'Descartando cambios…');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     toast('Cambios descartados', 'info');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -29,7 +32,7 @@ export async function removeFile(file) {
   if (!confirm(`¿Eliminar "${file}" del disco? Esta acción es permanente y no se puede deshacer.`)) return;
   try {
     await opPost('/repo/delete-path', { path: file }, 'Eliminando…');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     toast('Eliminado', 'info');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -39,7 +42,7 @@ export async function removeFolder(folderPath) {
   if (!confirm(`¿Eliminar la carpeta "${folderPath}/" y TODO su contenido del disco?\nEsta acción es permanente y no se puede deshacer.`)) return;
   try {
     await opPost('/repo/delete-path', { path: folderPath }, 'Eliminando carpeta…');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     toast('Carpeta eliminada', 'info');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -54,7 +57,7 @@ export async function openFileInEditor(file) {
 export async function resolveConflictSide(file, side) {
   try {
     await post('/repo/checkout-conflict', { file, side });
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     const label = side === 'ours' ? 'nuestros' : 'ellos';
     toast(`Usando cambios de ${label} para "${file.split('/').pop()}" ✓`, 'success');
   } catch (e) { toast(e.message, 'error'); }
@@ -62,17 +65,14 @@ export async function resolveConflictSide(file, side) {
 
 // ─── File Context Menu ────────────────────────────────────────────────────────
 
-let _fileCtxData = null;
-
 export function fileCtxShow(event, path, listType, isUntracked) {
-  event.preventDefault();
-  event.stopPropagation();
-  _fileCtxData = { path, listType, isUntracked };
+  const isConflicted = (state.status?.conflicted || []).includes(path);
 
   let items = '';
   if (listType === 'clean') {
     items += `<div class="ctx-item" onclick="fileCtxAction('open')">↗ Abrir en editor</div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('history')">📜 Historial del archivo</div>`;
+    items += `<div class="ctx-item" onclick="fileCtxAction('blame')">👁 Ver autoría</div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('copy-path')">📋 Copiar ruta</div>`;
     items += `<div class="ctx-sep"></div>`;
     items += `<div class="ctx-item ctx-warn" onclick="fileCtxAction('untrack')">🚫 Quitar del tracking</div>`;
@@ -88,9 +88,11 @@ export function fileCtxShow(event, path, listType, isUntracked) {
     items += `<div class="ctx-sep"></div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('open')">↗ Abrir en editor</div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('history')">📜 Historial del archivo</div>`;
+    items += `<div class="ctx-item" onclick="fileCtxAction('blame')">👁 Ver autoría</div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('copy-path')">📋 Copiar ruta</div>`;
   } else {
     items += `<div class="ctx-item" onclick="fileCtxAction('diff')">🔍 Ver diff</div>`;
+    if (isConflicted) items += `<div class="ctx-item ctx-primary" onclick="fileCtxAction('conflict-editor')">⚡ Resolver conflicto…</div>`;
     items += `<div class="ctx-sep"></div>`;
     items += `<div class="ctx-item ctx-primary" onclick="fileCtxAction('stage')">+ Stage</div>`;
     if (!isUntracked) items += `<div class="ctx-item ctx-warn" onclick="fileCtxAction('discard')">⟲ Descartar cambios</div>`;
@@ -100,43 +102,25 @@ export function fileCtxShow(event, path, listType, isUntracked) {
     items += `<div class="ctx-sep"></div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('open')">↗ Abrir en editor</div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('history')">📜 Historial del archivo</div>`;
+    items += `<div class="ctx-item" onclick="fileCtxAction('blame')">👁 Ver autoría</div>`;
     items += `<div class="ctx-item" onclick="fileCtxAction('copy-path')">📋 Copiar ruta</div>`;
   }
 
-  showCtxMenu('fileCtxMenu', event, items);
+  getContextMenu('fileCtxMenu').show(event, { type: 'file', path, listType, isUntracked, isConflicted }, items);
 }
 
-export function fileCtxAction(action) {
-  closeAllCtxMenus();
-  const d = _fileCtxData;
-  if (!d) return;
-  const { state: st } = window;
-  switch (action) {
-    case 'diff':          showDiff(d.path, d.listType === 'staged'); break;
-    case 'stage':         stageFile(d.path); break;
-    case 'unstage':       unstageFile(d.path); break;
-    case 'discard':       discardFile(d.path); break;
-    case 'delete':        removeFile(d.path); break;
-    case 'untrack':       _untrackFile(d.path); break;
-    case 'gitignore-add': window.openAddToGitignoreModal(d.path); break;
-    case 'open':          openFileInEditor(d.path); break;
-    case 'history':       window.openFileHistory(d.path); break;
-    case 'copy-path':     window.copyToClipboard((st?.repoPath || '') + '/' + d.path); break;
-  }
-}
+export function fileCtxAction(action) { getContextMenu('fileCtxMenu').action(action); }
 
 async function _untrackFile(file) {
   if (!confirm(`¿Quitar "${file}" del tracking de git?\nEl archivo quedará como no rastreado pero NO se eliminará del disco.`)) return;
   try {
     await opPost('/repo/untrack', { files: [file] }, 'Quitando del tracking…');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     toast(`"${file}" quitado del tracking ✓`, 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
 
 // ─── Folder Context Menu ──────────────────────────────────────────────────────
-
-let _folderCtxData = null;
 
 function _filesInFolder(folderPath, listType) {
   const { state: st } = window;
@@ -148,10 +132,6 @@ function _filesInFolder(folderPath, listType) {
 }
 
 export function folderCtxShow(event, folderPath, listType) {
-  event.preventDefault();
-  event.stopPropagation();
-  _folderCtxData = { folderPath, listType };
-
   const fileCount  = _filesInFolder(folderPath, listType).length;
   const countLabel = fileCount > 0 ? ` (${fileCount})` : '';
   let items = `<div class="ctx-item ctx-header">📁 ${escHtml(folderPath)}/</div><div class="ctx-sep"></div>`;
@@ -168,42 +148,56 @@ export function folderCtxShow(event, folderPath, listType) {
   items += `<div class="ctx-sep"></div>`;
   items += `<div class="ctx-item" onclick="folderCtxAction('copy-path')">📋 Copiar ruta</div>`;
 
-  showCtxMenu('fileCtxMenu', event, items);
+  getContextMenu('fileCtxMenu').show(event, { type: 'folder', folderPath, listType }, items);
 }
 
-export async function folderCtxAction(action) {
-  closeAllCtxMenus();
-  const d = _folderCtxData;
-  if (!d) return;
-  const files = _filesInFolder(d.folderPath, d.listType);
+export function folderCtxAction(action) { getContextMenu('fileCtxMenu').action(action); }
 
-  switch (action) {
-    case 'stage':
-      if (!files.length) { toast('No hay archivos para agregar al stage', 'info'); return; }
-      try { await opPost('/repo/stage', { files }, 'Añadiendo al stage…'); await window.refreshStatus(); } catch (e) { toast(e.message, 'error'); }
-      break;
-    case 'unstage':
-      if (!files.length) { toast('No hay archivos en stage', 'info'); return; }
-      try { await opPost('/repo/unstage', { files }, 'Quitando del stage…'); await window.refreshStatus(); } catch (e) { toast(e.message, 'error'); }
-      break;
-    case 'discard':
-      if (!files.length) { toast('No hay cambios que descartar', 'info'); return; }
-      if (!confirm(`¿Descartar cambios en ${files.length} archivo(s) de "${d.folderPath}/"? Esta acción no se puede deshacer.`)) return;
-      try { await opPost('/repo/discard', { files }, 'Descartando cambios…'); await window.refreshStatus(); } catch (e) { toast(e.message, 'error'); }
-      break;
-    case 'untrack':
-      if (!files.length) { toast('No hay archivos rastreados en esta carpeta', 'info'); return; }
-      if (!confirm(`¿Quitar ${files.length} archivo(s) de "${d.folderPath}/" del tracking?\nNO se eliminarán del disco.`)) return;
-      try { await opPost('/repo/untrack', { files }, 'Quitando del tracking…'); await window.refreshStatus(); toast(`${files.length} archivo(s) quitados del tracking ✓`, 'success'); } catch (e) { toast(e.message, 'error'); }
-      break;
-    case 'delete':
-      await removeFolder(d.folderPath);
-      break;
-    case 'gitignore-add':
-      window.openAddToGitignoreModal(d.folderPath, true);
-      break;
-    case 'copy-path':
-      window.copyToClipboard(d.folderPath + '/');
-      break;
-  }
-}
+defineContextMenu('fileCtxMenu', {
+  onAction: async (action, ctx) => {
+    if (ctx.type === 'file') {
+      const { path, listType, isUntracked } = ctx;
+      const { state: st } = window;
+      switch (action) {
+        case 'diff':          showDiff(path, listType === 'staged'); break;
+        case 'stage':         stageFile(path); break;
+        case 'unstage':       unstageFile(path); break;
+        case 'discard':       discardFile(path); break;
+        case 'delete':        removeFile(path); break;
+        case 'untrack':       _untrackFile(path); break;
+        case 'gitignore-add': window.openAddToGitignoreModal(path); break;
+        case 'open':          openFileInEditor(path); break;
+        case 'history':       window.openFileHistory(path); break;
+        case 'blame':         window.openBlame(path); break;
+        case 'conflict-editor': window.openConflictEditor?.(path); break;
+        case 'copy-path':     window.copyToClipboard((st?.repoPath || '') + '/' + path); break;
+      }
+    } else {
+      const { folderPath, listType } = ctx;
+      const files = _filesInFolder(folderPath, listType);
+      switch (action) {
+        case 'stage':
+          if (!files.length) { toast('No hay archivos para agregar al stage', 'info'); return; }
+          try { await opPost('/repo/stage', { files }, 'Añadiendo al stage…'); emit('repo:refresh-status'); } catch (e) { toast(e.message, 'error'); }
+          break;
+        case 'unstage':
+          if (!files.length) { toast('No hay archivos en stage', 'info'); return; }
+          try { await opPost('/repo/unstage', { files }, 'Quitando del stage…'); emit('repo:refresh-status'); } catch (e) { toast(e.message, 'error'); }
+          break;
+        case 'discard':
+          if (!files.length) { toast('No hay cambios que descartar', 'info'); return; }
+          if (!confirm(`¿Descartar cambios en ${files.length} archivo(s) de "${folderPath}/"? Esta acción no se puede deshacer.`)) return;
+          try { await opPost('/repo/discard', { files }, 'Descartando cambios…'); emit('repo:refresh-status'); } catch (e) { toast(e.message, 'error'); }
+          break;
+        case 'untrack':
+          if (!files.length) { toast('No hay archivos rastreados en esta carpeta', 'info'); return; }
+          if (!confirm(`¿Quitar ${files.length} archivo(s) de "${folderPath}/" del tracking?\nNO se eliminarán del disco.`)) return;
+          try { await opPost('/repo/untrack', { files }, 'Quitando del tracking…'); emit('repo:refresh-status'); toast(`${files.length} archivo(s) quitados del tracking ✓`, 'success'); } catch (e) { toast(e.message, 'error'); }
+          break;
+        case 'delete':        await removeFolder(folderPath); break;
+        case 'gitignore-add': window.openAddToGitignoreModal(folderPath, true); break;
+        case 'copy-path':     window.copyToClipboard(folderPath + '/'); break;
+      }
+    }
+  },
+});

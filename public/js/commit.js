@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { post, opPost } from './api.js';
 import { toast, escHtml } from './utils.js';
+import { emit } from './bus.js';
 
 // ─── Commit ───────────────────────────────────────────────────────────────────
 
@@ -18,7 +19,7 @@ export async function doCommit(messageOverride = null) {
     const result = await opPost('/repo/commit', { message: msg, amend: !!amend }, label);
     if (result === null) return false;
     if (!messageOverride) document.getElementById('commitMessage').value = '';
-    await window.refreshAll();
+    emit('repo:refresh');
     if (!messageOverride) toast(amend ? 'Commit modificado ✓' : 'Commit realizado ✓', 'success');
     if (andPush) await window.doPush();
     return true;

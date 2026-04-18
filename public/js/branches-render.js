@@ -122,7 +122,7 @@ export function renderBranches(branches) {
 
   let html = '';
 
-  html += '<div class="branch-group-header">Ramas Locales</div>';
+  html += `<div class="branch-group-header">Ramas Locales <span class="branch-count">(${localBranches.length})</span></div>`;
   if (localBranches.length === 0) {
     html += `<div class="empty-state-small">${filter ? 'Sin coincidencias' : 'Sin ramas locales'}</div>`;
   } else {
@@ -130,7 +130,7 @@ export function renderBranches(branches) {
     html += renderBranchTree(tree, 'local/', 0, localItem);
   }
 
-  html += '<div class="branch-group-header">Ramas Remotas</div>';
+  html += `<div class="branch-group-header">Ramas Remotas <span class="branch-count">(${remoteBranches.length})</span></div>`;
   if (remoteBranches.length === 0) {
     html += `<div class="empty-state-small">${filter ? 'Sin coincidencias' : 'Sin ramas remotas (haz fetch)'}</div>`;
   } else {

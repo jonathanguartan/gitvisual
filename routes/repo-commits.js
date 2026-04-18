@@ -3,7 +3,7 @@ const router = require('express').Router();
 const path   = require('path');
 const fs     = require('fs');
 const { git } = require('../lib/git');
-const { loadConfig } = require('../lib/config');
+const { loadRepoConfig } = require('../lib/config');
 const { handleGitError } = require('../lib/git-errors');
 const { isValidHash } = require('../lib/validation');
 
@@ -11,7 +11,7 @@ const { isValidHash } = require('../lib/validation');
 
 router.get('/diff', async (req, res) => {
   const { repoPath, file, staged } = req.query;
-  const cfg = loadConfig();
+  const cfg = loadRepoConfig(repoPath);
   const ctx = cfg.diffContext ?? 3;
   try {
     const g = git(repoPath);
@@ -28,12 +28,26 @@ router.get('/diff', async (req, res) => {
 router.get('/commit/files', async (req, res) => {
   const { repoPath, hash } = req.query;
   try {
-    const out = await git(repoPath).raw(['diff-tree', '--no-commit-id', '-r', '--name-status', hash]);
-    const files = out.trim().split('\n').filter(Boolean).map(line => {
+    const g = git(repoPath);
+    const [nsOut, statOut] = await Promise.all([
+      g.raw(['diff-tree', '--no-commit-id', '-r', '--name-status', hash]),
+      g.raw(['diff-tree', '--no-commit-id', '-r', '--numstat', hash]),
+    ]);
+
+    // Build insertion/deletion map from numstat
+    const statsMap = {};
+    statOut.trim().split('\n').filter(Boolean).forEach(line => {
+      const [add, del, ...pathParts] = line.split('\t');
+      const p = pathParts.join('\t');
+      statsMap[p] = { add: parseInt(add, 10) || 0, del: parseInt(del, 10) || 0 };
+    });
+
+    const files = nsOut.trim().split('\n').filter(Boolean).map(line => {
       const [status, ...rest] = line.split('\t');
       const oldPath = rest[0] || '';
       const newPath = rest[1] || oldPath;
-      return { status: status[0], path: newPath, oldPath: status[0] === 'R' ? oldPath : null };
+      const s = statsMap[newPath] || statsMap[oldPath] || { add: 0, del: 0 };
+      return { status: status[0], path: newPath, oldPath: status[0] === 'R' ? oldPath : null, add: s.add, del: s.del };
     });
     res.json({ files });
   } catch (e) {

@@ -1,17 +1,12 @@
-import { closeAllCtxMenus, showCtxMenu } from './utils.js';
 import { ctxBranchData } from './branches-render.js';
 import {
   checkoutBranch, checkoutRemoteBranch, deleteBranch, confirmDeleteRemoteBranch,
   openPullFromModal, openRenameBranchModal, openRebaseModal, mergeFromRemote,
   openNewBranchModal, pullBranchFF, openSetUpstreamModal,
 } from './branches-ops.js';
-
-let _ctxActiveBid = null;
+import { defineContextMenu, getContextMenu } from './gvm/gvm-ctx-menus.js';
 
 export function branchCtxShow(event, bid) {
-  event.preventDefault();
-  event.stopPropagation();
-  _ctxActiveBid = bid;
   const data = ctxBranchData[bid];
   if (!data) return;
 
@@ -40,40 +35,38 @@ export function branchCtxShow(event, bid) {
     items += `<div class="ctx-item ctx-danger" onclick="branchCtxAction('delete-remote')">✕ Eliminar rama remota</div>`;
   }
 
-  showCtxMenu('branchCtxMenu', event, items);
+  getContextMenu('branchCtxMenu').show(event, { bid }, items);
 }
 
-export function branchCtxClose() {
-  document.getElementById('branchCtxMenu').style.display = 'none';
-}
+export function branchCtxClose()        { getContextMenu('branchCtxMenu').close(); }
+export function branchCtxAction(action) { getContextMenu('branchCtxMenu').action(action); }
 
-export function branchCtxAction(action) {
-  closeAllCtxMenus();
-  const data = ctxBranchData[_ctxActiveBid];
-  if (!data) return;
-
-  const { name, fullName, tracking, type } = data;
-  const upstream  = tracking?.upstream;
-  const logTarget = fullName || name;
-  const remoteRef = fullName?.replace(/^remotes\//, '');
-  const headName  = type === 'remote'
-    ? fullName?.replace(/^remotes\/[^/]+\//, '')
-    : name;
-
-  switch (action) {
-    case 'checkout':           checkoutBranch(name); break;
-    case 'pull-from':          openPullFromModal(name, upstream); break;
-    case 'log':                window.viewBranchLog(logTarget); break;
-    case 'rename':             openRenameBranchModal(name); break;
-    case 'rebase':             openRebaseModal(name); break;
-    case 'delete':             deleteBranch(name, upstream); break;
-    case 'checkout-remote':    checkoutRemoteBranch(fullName); break;
-    case 'new-from-remote':    openNewBranchModal(fullName); break;
-    case 'merge-from-remote':  mergeFromRemote(fullName, 'merge'); break;
-    case 'rebase-from-remote': mergeFromRemote(fullName, 'rebase'); break;
-    case 'delete-remote':      confirmDeleteRemoteBranch(remoteRef); break;
-    case 'create-pr':          window.openPRModal(headName); break;
-    case 'pull-ff':            pullBranchFF(name, upstream); break;
-    case 'set-upstream':       openSetUpstreamModal(name); break;
-  }
-}
+defineContextMenu('branchCtxMenu', {
+  onAction: (action, { bid }) => {
+    const data = ctxBranchData[bid];
+    if (!data) return;
+    const { name, fullName, tracking, type } = data;
+    const upstream  = tracking?.upstream;
+    const logTarget = fullName || name;
+    const remoteRef = fullName?.replace(/^remotes\//, '');
+    const headName  = type === 'remote'
+      ? fullName?.replace(/^remotes\/[^/]+\//, '')
+      : name;
+    switch (action) {
+      case 'checkout':           checkoutBranch(name); break;
+      case 'pull-from':          openPullFromModal(name, upstream); break;
+      case 'log':                window.viewBranchLog(logTarget); break;
+      case 'rename':             openRenameBranchModal(name); break;
+      case 'rebase':             openRebaseModal(name); break;
+      case 'delete':             deleteBranch(name, upstream); break;
+      case 'checkout-remote':    checkoutRemoteBranch(fullName); break;
+      case 'new-from-remote':    openNewBranchModal(fullName); break;
+      case 'merge-from-remote':  mergeFromRemote(fullName, 'merge'); break;
+      case 'rebase-from-remote': mergeFromRemote(fullName, 'rebase'); break;
+      case 'delete-remote':      confirmDeleteRemoteBranch(remoteRef); break;
+      case 'create-pr':          window.openPRModal(headName); break;
+      case 'pull-ff':            pullBranchFF(name, upstream); break;
+      case 'set-upstream':       openSetUpstreamModal(name); break;
+    }
+  },
+});

@@ -1,6 +1,8 @@
+import { emit } from './bus.js';
 import { tabs, activeTabId, state, saveSession, newTabData, setActiveTabId } from './state.js';
-import { get, post, opPost } from './api.js';
+import { get, post, opPost, switchTabSignal } from './api.js';
 import { escHtml, escAttr, toast, openModal, closeModal } from './utils.js';
+import { clearLastDiff } from './diff.js';
 
 // ─── Repo Tab Management ──────────────────────────────────────────────────────
 
@@ -23,6 +25,8 @@ export function renderTabBar() {
 export async function switchRepoTab(id) {
   if (id === activeTabId && !state.isLazy) return;
 
+  switchTabSignal(); // abort in-flight background requests from the previous tab
+  clearLastDiff();   // evita que toggleDiffMode cargue el diff del tab anterior
   setActiveTabId(id);
   renderTabBar();
   const tab = tabs.find(t => t.id === id) || null;
@@ -42,10 +46,10 @@ export async function switchRepoTab(id) {
 
     if (tab.isLazy) {
       tab.isLazy = false;
-      await window.refreshAll();
+      emit('repo:refresh');
     } else {
       window.renderAll();
-      window.refreshAll();
+      emit('repo:refresh');
     }
 
     saveSession();

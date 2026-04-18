@@ -1,5 +1,5 @@
 const router   = require('express').Router();
-const { loadConfig, saveConfig } = require('../lib/config');
+const { loadConfig, saveConfig, saveRepoConfig, clearRepoConfig, getRepoOverrides } = require('../lib/config');
 const registry = require('../lib/platforms');
 
 router.get('/', (_req, res) => {
@@ -24,6 +24,32 @@ router.post('/save', (req, res) => {
 router.post('/tabs', (req, res) => {
   const { openTabs } = req.body;
   saveConfig({ openTabs });
+  res.json({ success: true });
+});
+
+// ─── Per-repo config ──────────────────────────────────────────────────────────
+
+// Devuelve la config global y los overrides del repo indicado
+router.get('/repo', (req, res) => {
+  const { repoPath } = req.query;
+  const global    = loadConfig();
+  const overrides = repoPath ? getRepoOverrides(repoPath) : {};
+  res.json({ global, overrides });
+});
+
+// Guarda overrides para un repositorio concreto
+router.post('/repo/save', (req, res) => {
+  const { repoPath, ...partial } = req.body;
+  if (!repoPath) return res.status(400).json({ error: 'repoPath requerido' });
+  saveRepoConfig(repoPath, partial);
+  res.json({ success: true });
+});
+
+// Elimina los overrides de un repositorio (vuelve a usar config global)
+router.post('/repo/clear', (req, res) => {
+  const { repoPath } = req.body;
+  if (!repoPath) return res.status(400).json({ error: 'repoPath requerido' });
+  clearRepoConfig(repoPath);
   res.json({ success: true });
 });
 

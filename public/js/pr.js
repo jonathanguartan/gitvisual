@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { get, post, opPost, api } from './api.js';
 import { escHtml, escAttr, relTime, toast, openModal, closeModal, spinner, empty } from './utils.js';
+import { emit } from './bus.js';
 
 // ─── Render: Pull Requests ────────────────────────────────────────────────────
 
@@ -89,8 +90,18 @@ export async function openCreatePRModal(headBranch = null) {
     .map(b => `<option value="${escAttr(b)}" ${b === mb ? 'selected' : ''}>${escHtml(b)}</option>`)
     .join('');
 
-  document.getElementById('prTitle').value = '';
   document.getElementById('prBody').value  = '';
+  // Auto-proponer título desde el nombre de la rama.
+  // Solo capitaliza la primera letra de cada palabra; palabras ≤3 letras quedan en minúscula
+  // excepto la primera. Usar split en lugar de \b\w evita falsos límites en letras acentuadas.
+  const _branchLabel = (selectedHead || '')
+    .replace(/^(feat|fix|chore|refactor|docs|test|hotfix)[/\-_]/i, '')
+    .replace(/[-_]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map((w, i) => (i === 0 || w.length > 3) ? w.charAt(0).toUpperCase() + w.slice(1) : w)
+    .join(' ');
+  document.getElementById('prTitle').value = _branchLabel;
   openModal('modalPR');
 }
 
@@ -124,3 +135,47 @@ export async function submitPR() {
 window.openPRModal  = openCreatePRModal;
 window.submitPR     = submitPR;
 window.loadPRs      = loadPRs;
+
+// ─── Append commits to PR body ────────────────────────────────────────────────
+
+window.appendPRCommits = async function() {
+  const head = document.getElementById('prHead')?.value;
+  const base = document.getElementById('prBase')?.value;
+  const ta   = document.getElementById('prBody');
+  if (!head || !base || head === base) {
+    toast('Selecciona ramas distintas para head y base', 'warn');
+    return;
+  }
+  try {
+    const data    = await get('/repo/branch/compare', { from: base, to: head });
+    const commits = data.commits || [];
+    if (!commits.length) {
+      toast(`Sin commits nuevos entre "${head}" y "${base}"`, 'info');
+      return;
+    }
+    const lines   = commits.map(c => `- \`${c.slice(0, 7)}\` ${c.slice(8)}`).join('\n');
+    const section = `## Commits incluidos\n\n${lines}\n`;
+    ta.value = ta.value.trimEnd()
+      ? ta.value.trimEnd() + '\n\n' + section
+      : section;
+    ta.focus();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+};
+
+// ─── PR Templates ─────────────────────────────────────────────────────────────
+
+const _PR_TEMPLATES = {
+  feat:    `## ¿Qué se añade?\n\n\n## Motivación\n\n\n## ¿Cómo se probó?\n\n`,
+  fix:     `## Problema\n\n\n## Causa raíz\n\n\n## Solución aplicada\n\n`,
+  refactor:`## Qué cambia\n\n\n## Por qué\n\n\n## Impacto esperado\n\n`,
+  general: `## Descripción\n\n\n## Cambios incluidos\n-\n-\n-\n\n## Notas\n\n`,
+};
+
+window.applyPRTemplate = function(type) {
+  const ta = document.getElementById('prBody');
+  if (!ta) return;
+  ta.value = _PR_TEMPLATES[type] || '';
+  ta.focus();
+};

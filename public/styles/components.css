@@ -1,3 +1,80 @@
+/* ── GvmList — Generic list component ─────────────────────────────────────── */
+/*
+ * Only structural/interaction styles live here.
+ * Each caller adds its own visual classes inside the .gvm-item wrapper.
+ * DO NOT add color or typography here — keep this layer purely structural.
+ */
+.gvm-item {
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+}
+/* Focus ring visible only with keyboard navigation */
+.gvm-item.gvm-focused { outline: 1px solid rgba(137,180,250,.5); outline-offset: -1px; }
+
+/* Selection state — subtle default; callers override with their own class pairs */
+.gvm-item.gvm-selected { background: rgba(137,180,250,.07); }
+.gvm-item.gvm-selected.gvm-focused { background: rgba(137,180,250,.12); }
+
+/* Empty state rendered when items array is empty (data-gvm-empty attribute) */
+.gvm-empty { padding: 16px; text-align: center; color: var(--tx3); font-size: 13px; }
+
+/* ── Unified Panel Header ──────────────────────────────────────────────────── */
+.panel-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 10px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-height: 28px;
+  gap: 6px;
+  user-select: none;
+}
+.panel-hdr-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tx3);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.panel-hdr-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+/* ── Panel Collapse ──────────────────────────────────────────────────────────── */
+.panel-collapsible {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.panel-collapsible.collapsed {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+.panel-collapsible.collapsed > :not(.panel-hdr) {
+  display: none !important;
+}
+.panel-collapse-btn {
+  transition: transform .2s, color .1s;
+  flex-shrink: 0;
+}
+.panel-collapsible.collapsed .panel-collapse-btn {
+  transform: rotate(-90deg);
+}
+
 /* ─── Files filter bar ────────────────────────────────────────── */
 .files-filter-bar {
   padding: 5px 8px;
@@ -387,25 +464,6 @@
 .stash-item.active-diff .stash-actions { opacity: 1; }
 
 /* ─── Stash diff view (tab-stash) ────────────────────────────────────────────── */
-.stash-view-hdr {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg1);
-  flex-shrink: 0;
-}
-.stash-view-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--tx1);
-  font-family: 'Consolas', monospace;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .stash-view-grid {
   display: flex;
   flex: 1;

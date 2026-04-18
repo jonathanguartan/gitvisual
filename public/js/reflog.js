@@ -1,5 +1,6 @@
 import { get, post } from './api.js';
 import { escHtml, relTime, toast, openModal, spinner, empty } from './utils.js';
+import { emit } from './bus.js';
 
 // ─── Reflog Panel ─────────────────────────────────────────────────────────────
 
@@ -43,7 +44,7 @@ export async function reflogCheckout(hash) {
   if (!confirm(`¿Hacer checkout del commit ${hash.slice(0,7)}?\nQuedarás en modo "detached HEAD".`)) return;
   try {
     await post('/repo/branch/checkout', { branchName: hash });
-    await window.refreshAll();
+    emit('repo:refresh');
     toast(`Checkout a ${hash.slice(0,7)} ✓ (HEAD detached)`, 'info');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -53,7 +54,7 @@ export async function reflogBranchHere(hash) {
   if (!name?.trim()) return;
   try {
     await post('/repo/branch/create-at', { branchName: name.trim(), hash });
-    await window.refreshBranches();
+    emit('repo:refresh-branches');
     toast(`Rama "${name.trim()}" creada desde ${hash.slice(0,7)} ✓`, 'success');
   } catch (e) { toast(e.message, 'error'); }
 }

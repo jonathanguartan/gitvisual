@@ -1,3 +1,4 @@
+import { emit } from './bus.js';
 import { get, post } from './api.js';
 import { escHtml, spinner, toast } from './utils.js';
 
@@ -349,7 +350,7 @@ export async function stageHunk(hunkId) {
   if (!patch) { toast('Hunk no encontrado', 'error'); return; }
   try {
     await post('/repo/stage-hunk', { patch, reverse: false });
-    await window.refreshStatus();
+    emit('repo:refresh-status');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -358,7 +359,7 @@ export async function unstageHunk(hunkId) {
   if (!patch) { toast('Hunk no encontrado', 'error'); return; }
   try {
     await post('/repo/stage-hunk', { patch, reverse: true });
-    await window.refreshStatus();
+    emit('repo:refresh-status');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -367,6 +368,10 @@ export async function unstageHunk(hunkId) {
 function _diffModeBtn(onclick) {
   const isSplit = _diffMode === 'split';
   return `<button class="btn btn-xs diff-mode-btn" onclick="${onclick}" title="${isSplit ? 'Vista unificada' : 'Vista lado a lado'}">${isSplit ? '⊟' : '⊞'}</button>`;
+}
+
+export function clearLastDiff() {
+  _lastShowDiffArgs = null;
 }
 
 export async function showDiff(file, staged) {
@@ -415,6 +420,26 @@ export function syncSplitPanes(container) {
   right.addEventListener('scroll', onScroll(right, left));
 }
 
+// ─── Hunk navigation ─────────────────────────────────────────────────────────
+
+export function navigateHunk(direction) {
+  const diffEl = document.getElementById('diffView');
+  if (!diffEl) return;
+  const hunks = [...diffEl.querySelectorAll('.hunk-hdr')];
+  if (!hunks.length) return;
+
+  const containerTop = diffEl.scrollTop;
+  let targetIdx = direction === 'next' ? 0 : hunks.length - 1;
+
+  for (let i = 0; i < hunks.length; i++) {
+    const hunkTop = hunks[i].offsetTop - diffEl.offsetTop;
+    if (direction === 'next' && hunkTop > containerTop + 8) { targetIdx = i; break; }
+    if (direction === 'prev' && hunkTop < containerTop - 8)  { targetIdx = i; }
+  }
+
+  hunks[targetIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 // ─── Window assignments ───────────────────────────────────────────────────────
 
 window.stageHunk   = stageHunk;
@@ -423,3 +448,4 @@ window.toggleMainDiffMode = function() {
   toggleDiffMode();
   if (_lastShowDiffArgs) showDiff(_lastShowDiffArgs.file, _lastShowDiffArgs.staged);
 };
+window.navigateHunk = navigateHunk;

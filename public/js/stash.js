@@ -1,44 +1,47 @@
+import { defineList, getList } from './gvm/gvm-lists.js';
 import { state } from './state.js';
 import { get, opPost } from './api.js';
 import { escHtml, escAttr, toast, openModal, closeModal, spinner } from './utils.js';
-import { renderDiff, renderDiffSplit, getDiffMode, toggleDiffMode, parseDiffByFile, syncSplitPanes } from './diff.js';
+import { parseDiffByFile } from './diff.js';
+import { defineEditor, getEditor } from './gvm/gvm-editors.js';
 import { fileIcon } from './files.js';
+import { emit } from './bus.js';
 
-// ─── Stash ────────────────────────────────────────────────────────────────────
+// ─── Render ───────────────────────────────────────────────────────────────────
 
-let _stashFiles = [];
+function _renderStashItem(s, idx, { selected }) {
+  const label = `${s.seq} - ${escHtml(s.branch)}: ${escHtml(s.description)}`;
+  return `<div class="stash-item${selected ? ' active-diff' : ''}" title="${escAttr(s.description)}">
+    <div class="stash-item-body">
+      <div class="stash-item-msg stash-item-label">${label}</div>
+      <div class="stash-item-date">${escHtml(s.date)}</div>
+    </div>
+    <div class="stash-actions">
+      <button class="stash-btn pop"   onclick="event.stopPropagation();stashPop('${escAttr(s.ref)}')"   title="Aplicar y eliminar">▶</button>
+      <button class="stash-btn apply" onclick="event.stopPropagation();stashApply('${escAttr(s.ref)}')" title="Aplicar (conservar)">↓</button>
+      <button class="stash-btn drop"  onclick="event.stopPropagation();stashDrop('${escAttr(s.ref)}')"  title="Eliminar">✕</button>
+    </div>
+  </div>`;
+}
+
+function _renderStashFileItem(f, idx, { selected }) {
+  return `<div class="file-item${selected ? ' active-diff' : ''}">
+    <span class="file-icon">${fileIcon(f.filename)}</span>
+    <span>${escHtml(f.filename)}</span>
+  </div>`;
+}
+
+// ─── Stash list ───────────────────────────────────────────────────────────────
 
 export function renderStashList(stashes) {
-  const el = document.getElementById('stashList');
-  if (!stashes.length) {
-    el.innerHTML = '<div class="stash-empty">Sin stashes</div>';
-    return;
-  }
-  el.innerHTML = stashes.map((s, i) => {
-    const label = `${s.seq} - ${escHtml(s.branch)}: ${escHtml(s.description)}`;
-    return `
-    <div class="stash-item" data-stash-idx="${i}" onclick="showStashDiff(${i})" style="cursor:pointer"
-         title="${escAttr(s.description)}">
-      <div class="stash-item-body">
-        <div class="stash-item-msg stash-item-label">${label}</div>
-        <div class="stash-item-date">${escHtml(s.date)}</div>
-      </div>
-      <div class="stash-actions">
-        <button class="stash-btn pop"   onclick="event.stopPropagation();stashPop('${escAttr(s.ref)}')"   title="Aplicar y eliminar">▶</button>
-        <button class="stash-btn apply" onclick="event.stopPropagation();stashApply('${escAttr(s.ref)}')" title="Aplicar (conservar)">↓</button>
-        <button class="stash-btn drop"  onclick="event.stopPropagation();stashDrop('${escAttr(s.ref)}')"  title="Eliminar">✕</button>
-      </div>
-    </div>`;
-  }).join('');
+  getList('stashList')?.setItems(stashes);
 }
 
 export async function showStashDiff(idx) {
   const stash = (state.stashList || [])[idx];
   if (!stash) return;
 
-  document.querySelectorAll('.stash-item').forEach(el => el.classList.remove('active-diff'));
-  const item = document.querySelector(`.stash-item[data-stash-idx="${idx}"]`);
-  if (item) item.classList.add('active-diff');
+  getList('stashList')?.selectIndex(idx, false);
 
   document.querySelectorAll('.side-nav-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -46,7 +49,7 @@ export async function showStashDiff(idx) {
 
   document.getElementById('stashViewTitle').textContent = `${stash.seq} - ${stash.branch}: ${stash.description}`;
   document.getElementById('stashFileList').innerHTML = spinner();
-  document.getElementById('stashDiffView').innerHTML = '<div class="diff-hint">Selecciona un archivo</div>';
+  getEditor('stashDiffView').setHint('Selecciona un archivo');
 
   try {
     const data = await get('/repo/stash/show', { ref: stash.ref });
@@ -55,28 +58,20 @@ export async function showStashDiff(idx) {
       return;
     }
     _stashFiles = parseDiffByFile(data.diff);
-    renderStashFileList(_stashFiles);
-    if (_stashFiles.length) showStashFileDiff(0);
+    getList('stashFileList')?.setItems(_stashFiles);
+    if (_stashFiles.length) getList('stashFileList')?.selectIndex(0, true);
   } catch (e) {
     document.getElementById('stashFileList').innerHTML = `<div class="diff-hint">${escHtml(e.message)}</div>`;
   }
 }
 
-function renderStashFileList(files) {
-  document.getElementById('stashFileList').innerHTML = files.map((f, i) => `
-    <div class="file-item" data-file-idx="${i}" onclick="showStashFileDiff(${i})">
-      <span class="file-icon">${fileIcon(f.filename)}</span>
-      <span>${escHtml(f.filename)}</span>
-    </div>
-  `).join('');
-}
+// ─── Stash file list ──────────────────────────────────────────────────────────
 
+let _stashFiles   = [];
 let _stashDiffIdx = null;
 
 export function showStashFileDiff(idx) {
-  document.querySelectorAll('#stashFileList .file-item').forEach(el => el.classList.remove('active-diff'));
-  const item = document.querySelector(`#stashFileList .file-item[data-file-idx="${idx}"]`);
-  if (item) item.classList.add('active-diff');
+  getList('stashFileList')?.selectIndex(idx, false);
   const f = _stashFiles[idx];
   if (!f) return;
   _stashDiffIdx = idx;
@@ -85,13 +80,16 @@ export function showStashFileDiff(idx) {
 
 function _renderStashDiff(f) {
   window.ensureSplitVisible?.('.stash-view-files', 'col', 180);
-  const isSplit = getDiffMode() === 'split';
-  const modeBtn = `<button class="btn btn-xs diff-mode-btn" onclick="toggleStashDiffMode()" title="${isSplit ? 'Vista unificada' : 'Vista lado a lado'}">${isSplit ? '⊟' : '⊞'}</button>`;
-  const content = isSplit ? renderDiffSplit(f.diff, f.filename) : renderDiff(f.diff, f.filename);
-  const el = document.getElementById('stashDiffView');
-  el.innerHTML = `<div class="diff-filename"><span>${escHtml(f.filename)}</span>${modeBtn}</div>${content}`;
-  if (isSplit) syncSplitPanes(el);
+  getEditor('stashDiffView').render(f.diff, f.filename);
 }
+
+// ─── Keyboard navigation ─────────────────────────────────────────────────────
+
+export function navigateStash(direction) {
+  getList('stashList')?.focusNeighbor(direction);
+}
+
+// ─── Stash ops ────────────────────────────────────────────────────────────────
 
 export function openStashModal() {
   document.getElementById('stashMessage').value  = '';
@@ -106,7 +104,7 @@ export async function confirmStash() {
 
   const conflicted = state.status?.conflicted || [];
   if (conflicted.length) {
-    const names = conflicted.map(p => p.split('/').pop());
+    const names   = conflicted.map(p => p.split('/').pop());
     const preview = names.slice(0, 3).join(', ');
     const extra   = names.length > 3 ? ` y ${names.length - 3} más` : '';
     toast(`No se puede crear el stash: resuelve los conflictos primero — ${preview}${extra}`, 'error');
@@ -119,7 +117,7 @@ export async function confirmStash() {
   try {
     await opPost('/repo/stash', { message, includeUntracked }, 'Guardando stash…');
     closeModal('modalStash');
-    await Promise.all([window.refreshStatus(), _refreshStash()]);
+    emit('repo:refresh-status'); await _refreshStash();
     toast(`Cambios guardados en stash${message ? ': ' + message : ''}`, 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -127,10 +125,8 @@ export async function confirmStash() {
 async function _applyWithConflictHandling(action, ref) {
   const result = await opPost(`/repo/stash/${action}`, { ref }, `Aplicando ${ref}…`);
 
-  // Git aplicó lo que pudo pero dejó marcadores de conflicto (<<<) en los archivos.
-  // Refrescar el estado y dejar que el usuario resuelva desde la pestaña de cambios.
   if (result?.conflict && result.type === 'merge') {
-    await Promise.all([window.refreshStatus(), _refreshStash()]);
+    emit('repo:refresh-status'); await _refreshStash();
     toast(
       `${ref} aplicado con conflictos. Resuélvelos en la pestaña de Cambios${action === 'pop' ? ' y luego elimina el stash manualmente' : ''}.`,
       'warn'
@@ -138,8 +134,6 @@ async function _applyWithConflictHandling(action, ref) {
     return;
   }
 
-  // Git no pudo empezar porque los archivos locales serían sobreescritos.
-  // Ofrecer auto-stash de los cambios actuales antes de aplicar.
   if (result?.conflict && result.type === 'prevented') {
     const ok = confirm(
       `"${ref}" tiene conflictos con los cambios actuales del repo.\n\n` +
@@ -150,20 +144,18 @@ async function _applyWithConflictHandling(action, ref) {
   }
 
   const label = action === 'pop' ? 'aplicado y eliminado' : 'aplicado (conservado en la lista)';
-  await Promise.all([window.refreshStatus(), _refreshStash()]);
+  emit('repo:refresh-status'); await _refreshStash();
   toast(`${ref} ${label}`, 'success');
 }
 
 export async function stashPop(ref) {
-  try {
-    await _applyWithConflictHandling('pop', ref);
-  } catch (e) { toast(e.message, 'error'); }
+  try { await _applyWithConflictHandling('pop', ref); }
+  catch (e) { toast(e.message, 'error'); }
 }
 
 export async function stashApply(ref) {
-  try {
-    await _applyWithConflictHandling('apply', ref);
-  } catch (e) { toast(e.message, 'error'); }
+  try { await _applyWithConflictHandling('apply', ref); }
+  catch (e) { toast(e.message, 'error'); }
 }
 
 export async function stashDrop(ref) {
@@ -186,7 +178,7 @@ async function _refreshStash() {
   }
 }
 
-// ─── Window assignments for HTML onclick handlers ────────────────────────────
+// ─── Window assignments for HTML onclick handlers ─────────────────────────────
 
 window.stashPop          = stashPop;
 window.stashApply        = stashApply;
@@ -195,7 +187,17 @@ window.showStashDiff     = showStashDiff;
 window.showStashFileDiff = showStashFileDiff;
 window.openStashModal    = openStashModal;
 window.confirmStash      = confirmStash;
-window.toggleStashDiffMode = function() {
-  toggleDiffMode();
-  if (_stashDiffIdx !== null && _stashFiles[_stashDiffIdx]) _renderStashDiff(_stashFiles[_stashDiffIdx]);
-};
+
+// ─── List & editor registration (consumed by panels.js) ───────────────────────
+
+defineEditor('stashDiffView', {});
+
+defineList('stashList', {
+  renderItem: _renderStashItem,
+  onActivate: (s, idx) => showStashDiff(idx),
+});
+
+defineList('stashFileList', {
+  renderItem: _renderStashFileItem,
+  onActivate: (f, idx) => { _stashDiffIdx = idx; _renderStashDiff(f); },
+});

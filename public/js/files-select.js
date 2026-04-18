@@ -3,6 +3,7 @@ import { opPost, post } from './api.js';
 import { toast } from './utils.js';
 import { showDiff } from './diff.js';
 import { fileState } from './files-state.js';
+import { emit } from './bus.js';
 
 // ─── Selection UI helpers ─────────────────────────────────────────────────────
 
@@ -130,7 +131,7 @@ export async function stageSelected() {
   try {
     await opPost('/repo/stage', { files }, 'Añadiendo al stage…');
     clearFileSelection('unstaged');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -140,7 +141,7 @@ export async function unstageSelected() {
   try {
     await opPost('/repo/unstage', { files }, 'Quitando del stage…');
     clearFileSelection('staged');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -151,7 +152,7 @@ export async function discardSelected() {
   try {
     await opPost('/repo/discard', { files }, 'Descartando cambios…');
     clearFileSelection('unstaged');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -162,21 +163,26 @@ export async function untrackSelected() {
   try {
     await opPost('/repo/untrack', { files }, 'Quitando del tracking…');
     clearFileSelection('staged');
-    await window.refreshStatus();
+    emit('repo:refresh-status');
     toast(`${files.length} archivo(s) quitados del tracking ✓`, 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
 
-export function stageOrUnstageActiveFile() {
+let _stagingInFlight = false;
+export async function stageOrUnstageActiveFile() {
   if (!fileState.activeDiffPath || !fileState.activeDiffList) return;
+  if (_stagingInFlight) return;
+  _stagingInFlight = true;
   const path = fileState.activeDiffPath;
   const lt   = fileState.activeDiffList;
-  if (lt === 'staged') {
-    opPost('/repo/unstage', { files: [path] }, 'Quitando del stage…')
-      .then(() => window.refreshStatus()).catch(e => toast(e.message, 'error'));
-  } else {
-    opPost('/repo/stage', { files: [path] }, 'Añadiendo al stage…')
-      .then(() => window.refreshStatus()).catch(e => toast(e.message, 'error'));
+  try {
+    if (lt === 'staged') await opPost('/repo/unstage', { files: [path] }, 'Quitando del stage…');
+    else                 await opPost('/repo/stage',   { files: [path] }, 'Añadiendo al stage…');
+    emit('repo:refresh-status');
+  } catch (e) {
+    toast(e.message, 'error');
+  } finally {
+    _stagingInFlight = false;
   }
 }
 
@@ -222,7 +228,7 @@ export async function fileDrop(event, to) {
     if (to === 'staged') await opPost('/repo/stage',   { files }, 'Añadiendo al stage…');
     else                 await opPost('/repo/unstage', { files }, 'Quitando del stage…');
     clearFileSelection();
-    await window.refreshStatus();
+    emit('repo:refresh-status');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -294,7 +300,7 @@ function _kbFolderToggle(dir) {
     if      (dir === 'left'  && !isCollapsed) fileState.collapsedFolders[listType].add(path);
     else if (dir === 'right' && isCollapsed)  fileState.collapsedFolders[listType].delete(path);
     else return;
-    window.refreshStatus();
+    emit('repo:refresh-status');
     requestAnimationFrame(() => {
       const id = listType === 'staged' ? 'stagedFiles' : 'unstagedFiles';
       const el = [...document.querySelectorAll(`#${id} .tree-folder`)].find(e => e.dataset.path === path);

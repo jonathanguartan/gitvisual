@@ -1,7 +1,8 @@
 const { app, BrowserWindow, Tray, Menu, shell, nativeImage, dialog } = require('electron');
-const path = require('path');
-const fs   = require('fs');
-const zlib = require('zlib');
+const path    = require('path');
+const fs      = require('fs');
+const zlib    = require('zlib');
+const updater = require('./updater');
 
 // Iniciar el servidor Express antes de crear ventanas
 const server = require('../server');
@@ -110,6 +111,17 @@ function createWindow(port) {
     mainWindow.focus();
   });
 
+  // Notifica al renderer cuando el BrowserWindow recupera el foco del SO,
+  // para que pueda refrescar la lista de archivos sin depender de window.focus
+  // del renderer (que no es confiable para cambios de foco a nivel de SO en Electron).
+  mainWindow.on('focus', () => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents
+        .executeJavaScript('window.dispatchEvent(new CustomEvent("electronWindowFocus"))')
+        .catch(() => {});
+    }
+  });
+
   // Links externos se abren en el browser del sistema.
   // will-navigate evita el crash de Chromium "origin.IsValid()" que ocurre
   // cuando setWindowOpenHandler devuelve deny y Chromium intenta validar el origen.
@@ -167,30 +179,50 @@ function createWindow(port) {
 
 // ─── System Tray ───────────────────────────────────────────────────────────────
 
+function buildTrayMenu(port) {
+  const showApp = () => {
+    if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
+    else createWindow(port);
+  };
+
+  const readyVersion = updater.getReadyVersion();
+
+  const items = [
+    { label: 'Abrir Git Visual Manager', click: showApp },
+    { type: 'separator' },
+  ];
+
+  if (readyVersion) {
+    // Update descargado y esperando instalación
+    items.push({
+      label: `Reiniciar para actualizar (v${readyVersion})`,
+      click: () => updater.quitAndInstall(),
+    });
+  } else {
+    items.push({
+      label: 'Buscar actualizaciones',
+      click: () => updater.checkForUpdates(true),
+    });
+  }
+
+  items.push(
+    { type: 'separator' },
+    { label: 'Salir', click: () => { app.isQuiting = true; app.quit(); } },
+  );
+
+  tray.setContextMenu(Menu.buildFromTemplate(items));
+}
+
 function createTray(port) {
   tray = new Tray(getIcon(16));
   tray.setToolTip('Git Visual Manager');
+  buildTrayMenu(port);
 
-  const showApp = () => {
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-    } else {
-      createWindow(port);
-    }
-  };
-
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Abrir Git Visual Manager', click: showApp },
-    { type: 'separator' },
-    {
-      label: 'Salir',
-      click: () => { app.isQuiting = true; app.quit(); },
-    },
-  ]));
-
-  // Doble clic en el icono del tray → mostrar ventana
-  tray.on('double-click', showApp);
+  // Doble clic → mostrar ventana
+  tray.on('double-click', () => {
+    if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
+    else createWindow(port);
+  });
 }
 
 // ─── Ciclo de vida de la app ───────────────────────────────────────────────────
@@ -203,6 +235,13 @@ app.whenReady().then(() => {
     const port = server.address().port;
     createTray(port);
     createWindow(port);
+
+    // Iniciar auto-updater. onUpdateReady reconstruye el menú del tray
+    // para mostrar "Reiniciar para actualizar" en lugar de "Buscar actualizaciones".
+    updater.init({
+      getMainWindow: () => mainWindow,
+      onUpdateReady: () => buildTrayMenu(port),
+    });
   };
 
   const onError = (err) => {
