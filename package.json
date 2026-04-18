@@ -9,6 +9,7 @@
     "electron": "electron electron/main.js",
     "electron:dev": "nodemon --watch server.js --watch electron/main.js --exec \"electron electron/main.js\"",
     "dist": "electron-builder --win",
+    "dist:publish": "electron-builder --win --publish always",
     "test": "node tests/lib/validation.test.js && node tests/lib/git-errors.test.js && node tests/lib/config.test.js",
     "test:validation": "node tests/lib/validation.test.js",
     "test:errors": "node tests/lib/git-errors.test.js",
@@ -18,6 +19,7 @@
     "@highlightjs/cdn-assets": "^11.11.1",
     "@octokit/rest": "^20.0.2",
     "cors": "^2.8.5",
+    "electron-updater": "^6.8.3",
     "express": "^4.18.2",
     "highlight.js": "^11.11.1",
     "simple-git": "^3.20.0"
@@ -32,6 +34,11 @@
     "productName": "Git Visual Manager",
     "extraMetadata": {
       "main": "electron/main.js"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "jonathanguartan",
+      "repo": "gitvisual"
     },
     "files": [
       "server.js",

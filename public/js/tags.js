@@ -2,6 +2,7 @@ import { defineList, getList } from './gvm/gvm-lists.js';
 import { get, opPost } from './api.js';
 import { escHtml, escAttr, toast, openModal, closeModal } from './utils.js';
 import { emit } from './bus.js';
+import { isValidRefName } from './validation.js';
 
 // ─── Render ───────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ export async function confirmCreateTag() {
   const name = document.getElementById('newTagName').value.trim();
   const msg  = document.getElementById('newTagMessage').value.trim();
   if (!name) { toast('Introduce un nombre para el tag', 'warn'); return; }
+  if (!isValidRefName(name)) { toast('Nombre de tag inválido. Evita espacios, .., tildes, y caracteres especiales.', 'warn'); return; }
   try {
     await opPost('/repo/tag/create', { tagName: name, message: msg || undefined, hash: _tagAtHash || undefined }, 'Creando tag…');
     _tagAtHash = null;

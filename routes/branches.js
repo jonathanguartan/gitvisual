@@ -336,9 +336,17 @@ router.post('/branch/squash', async (req, res) => {
   if (!message?.trim()) return res.status(400).json({ error: 'El mensaje del commit no puede estar vacío' });
   try {
     const g = git(repoPath);
+    // Guardar HEAD original para rollback si el commit falla tras el reset
+    const origHead = (await g.raw(['rev-parse', 'HEAD'])).trim();
     await g.raw(['reset', '--soft', `HEAD~${n}`]);
-    await g.commit(message.trim());
-    res.json({ success: true });
+    try {
+      await g.commit(message.trim());
+      res.json({ success: true });
+    } catch (commitErr) {
+      // Rollback: restaurar los commits que se deshicieron
+      try { await g.raw(['reset', '--soft', origHead]); } catch (_) {}
+      handleGitError(res, commitErr);
+    }
   } catch (e) {
     handleGitError(res, e);
   }

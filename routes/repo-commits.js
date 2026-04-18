@@ -3,7 +3,7 @@ const router = require('express').Router();
 const path   = require('path');
 const fs     = require('fs');
 const { git } = require('../lib/git');
-const { loadConfig } = require('../lib/config');
+const { loadRepoConfig } = require('../lib/config');
 const { handleGitError } = require('../lib/git-errors');
 const { isValidHash } = require('../lib/validation');
 
@@ -11,7 +11,7 @@ const { isValidHash } = require('../lib/validation');
 
 router.get('/diff', async (req, res) => {
   const { repoPath, file, staged } = req.query;
-  const cfg = loadConfig();
+  const cfg = loadRepoConfig(repoPath);
   const ctx = cfg.diffContext ?? 3;
   try {
     const g = git(repoPath);

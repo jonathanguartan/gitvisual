@@ -19,7 +19,7 @@ import './repo.js';
 import './tabs.js';
 import './panels.js';
 
-import { hideOp, forceHideOp, opPost } from './api.js';
+import { hideOp, forceHideOp, opPost, post } from './api.js';
 import { state } from './state.js';
 import { toast, debounce } from './utils.js';
 import { emit } from './bus.js';
@@ -139,17 +139,13 @@ document.getElementById('btnCreateTag').addEventListener('click', () => window.c
 document.getElementById('btnRefreshBranches').addEventListener('click', () => window.refreshBranchesList());
 
 document.getElementById('btnRefresh').addEventListener('click', () => emit('repo:refresh'));
-document.getElementById('btnSync').addEventListener('click', () => window.syncRepo());
-document.getElementById('btnFetch').addEventListener('click', () => window.doFetch());
-document.getElementById('btnPull').addEventListener('click', () => window.doPull());
-document.getElementById('btnPush').addEventListener('click', () => window.doPush());
+document.getElementById('tbSync').addEventListener('click', () => window.syncRepo());
+document.getElementById('btnOpenFolder').addEventListener('click', () => post('/repo/open-folder', {}));
+document.getElementById('btnOpenTerminal').addEventListener('click', () => post('/repo/open-terminal', {}));
 document.getElementById('btnCompareBranches').addEventListener('click', () => window.openCompareBranchesModal());
 
-document.getElementById('btnPushProd').addEventListener('click', () => window.openProdModal());
 document.getElementById('btnConfirmProd').addEventListener('click', () => window.pushToProduction());
 document.getElementById('btnConfirmPullFrom').addEventListener('click', () => window.confirmPullFrom());
-
-document.getElementById('btnCreatePR').addEventListener('click', () => window.openPRModal());
 document.getElementById('btnSubmitPR').addEventListener('click', () => window.submitPR());
 document.getElementById('btnRefreshPRs').addEventListener('click', () => window.loadPRs?.());
 

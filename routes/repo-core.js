@@ -4,7 +4,7 @@ const path    = require('path');
 const fs      = require('fs');
 const simpleGit = require('simple-git');
 const { git }   = require('../lib/git');
-const { loadConfig } = require('../lib/config');
+const { loadRepoConfig } = require('../lib/config');
 const registry = require('../lib/platforms');
 const { handleGitError } = require('../lib/git-errors');
 const { isValidRefName, validateRepoPath } = require('../lib/validation');
@@ -78,7 +78,7 @@ router.use(validateRepoPath);
 
 router.get('/info', async (req, res) => {
   const { repoPath } = req.query;
-  const configApp = loadConfig();
+  const configApp = loadRepoConfig(repoPath);
   try {
     const g = git(repoPath);
     const [branch, remotes, config, status, log] = await Promise.all([
@@ -181,8 +181,8 @@ router.get('/files/all', async (req, res) => {
 });
 
 router.get('/log', async (req, res) => {
-  const cfg = loadConfig();
   const { repoPath, search, branch } = req.query;
+  const cfg = loadRepoConfig(repoPath);
   const limit = req.query.limit || cfg.logLimit || 100;
   try {
     const g   = git(repoPath);

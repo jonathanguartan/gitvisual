@@ -3,6 +3,7 @@ import { get, post, opPost } from './api.js';
 import { escHtml, escAttr, toast, openModal, closeModal, spinner } from './utils.js';
 import { renderDiff } from './diff.js';
 import { emit } from './bus.js';
+import { isValidRefName } from './validation.js';
 
 // ─── Helpers internos ─────────────────────────────────────────────────────────
 
@@ -120,22 +121,36 @@ export async function confirmDeleteBranch() {
 
   try {
     await post('/repo/branch/delete', { branchName: name, force });
-    if (delRemote && _branchToDeleteUpstream) {
-      const parts  = _branchToDeleteUpstream.split('/');
-      const remote = parts[0];
-      const branch = parts.slice(1).join('/');
-      await post('/repo/branch/delete-remote', { remote, branch });
-    }
-    closeModal('modalDeleteBranch');
-    emit('repo:refresh-branches');
-    const extra = delRemote ? ' y rama remota' : '';
-    toast(`Rama "${name}"${extra} eliminada ${force ? '(forzado)' : ''}`, 'info');
   } catch (e) {
     let msg = e.message;
     if (msg.includes('not fully merged')) {
       msg = 'La rama no ha sido fusionada completamente. Marca "Forzar eliminación" si deseas borrarla de todos modos.';
     }
     toast(msg, 'error');
+    return;
+  }
+
+  // La rama local se eliminó. Intentar la rama remota por separado.
+  let remoteErr = null;
+  if (delRemote && _branchToDeleteUpstream) {
+    const parts  = _branchToDeleteUpstream.split('/');
+    const remote = parts[0];
+    const branch = parts.slice(1).join('/');
+    try {
+      await post('/repo/branch/delete-remote', { remote, branch });
+    } catch (e) {
+      remoteErr = e.message;
+    }
+  }
+
+  closeModal('modalDeleteBranch');
+  emit('repo:refresh-branches');
+
+  if (remoteErr) {
+    toast(`Rama local "${name}" eliminada, pero falló la remota: ${remoteErr}`, 'warn');
+  } else {
+    const extra = delRemote ? ' y rama remota' : '';
+    toast(`Rama "${name}"${extra} eliminada ${force ? '(forzado)' : ''}`, 'info');
   }
 }
 
@@ -276,6 +291,7 @@ export function openRenameBranchModal(name) {
 export async function confirmRenameBranch() {
   const newName = document.getElementById('renameBranchNew').value.trim();
   if (!newName || newName === _renameBranchOld) { closeModal('modalRenameBranch'); return; }
+  if (!isValidRefName(newName)) { toast('Nombre de rama inválido. Evita espacios, .., tildes, y caracteres especiales.', 'warn'); return; }
   try {
     await opPost('/repo/branch/rename', { branchName: _renameBranchOld, newName }, `Renombrando a "${newName}"…`);
     closeModal('modalRenameBranch');
@@ -371,7 +387,7 @@ export function openNewBranchModal(fromBranchName = '', suggestedNewBranchName =
 
 export async function createBranch(name, from, skipModal = false) {
   if (!name) { if (!skipModal) toast('Ingresa un nombre de rama', 'warn'); return false; }
-  if (!/^[a-zA-Z0-9._/\-]+$/.test(name)) { if (!skipModal) toast('Nombre inválido (usa letras, números, /, -, _)', 'warn'); return false; }
+  if (!isValidRefName(name)) { if (!skipModal) toast('Nombre de rama inválido. Evita espacios, .., tildes, y caracteres especiales.', 'warn'); return false; }
   const noCheckout = !skipModal && !!document.getElementById('newBranchNoCheckout')?.checked;
   try {
     await post('/repo/branch/create', { branchName: name, fromBranch: from, noCheckout });
@@ -459,6 +475,7 @@ export async function confirmSetUpstream(localBranch) {
 export async function openCreateBranchAtModal(hash) {
   const name = prompt(`Nombre para la nueva rama (desde ${hash.slice(0,7)}):`);
   if (!name?.trim()) return;
+  if (!isValidRefName(name.trim())) { toast('Nombre de rama inválido. Evita espacios, .., tildes, y caracteres especiales.', 'warn'); return; }
   try {
     await post('/repo/branch/create-at', { branchName: name.trim(), hash });
     emit('repo:refresh-branches');

@@ -91,12 +91,16 @@ export async function openCreatePRModal(headBranch = null) {
     .join('');
 
   document.getElementById('prBody').value  = '';
-  // Auto-proponer título desde el nombre de la rama
+  // Auto-proponer título desde el nombre de la rama.
+  // Solo capitaliza la primera letra de cada palabra; palabras ≤3 letras quedan en minúscula
+  // excepto la primera. Usar split en lugar de \b\w evita falsos límites en letras acentuadas.
   const _branchLabel = (selectedHead || '')
     .replace(/^(feat|fix|chore|refactor|docs|test|hotfix)[/\-_]/i, '')
     .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase())
-    .trim();
+    .trim()
+    .split(/\s+/)
+    .map((w, i) => (i === 0 || w.length > 3) ? w.charAt(0).toUpperCase() + w.slice(1) : w)
+    .join(' ');
   document.getElementById('prTitle').value = _branchLabel;
   openModal('modalPR');
 }
@@ -131,6 +135,34 @@ export async function submitPR() {
 window.openPRModal  = openCreatePRModal;
 window.submitPR     = submitPR;
 window.loadPRs      = loadPRs;
+
+// ─── Append commits to PR body ────────────────────────────────────────────────
+
+window.appendPRCommits = async function() {
+  const head = document.getElementById('prHead')?.value;
+  const base = document.getElementById('prBase')?.value;
+  const ta   = document.getElementById('prBody');
+  if (!head || !base || head === base) {
+    toast('Selecciona ramas distintas para head y base', 'warn');
+    return;
+  }
+  try {
+    const data    = await get('/repo/branch/compare', { from: base, to: head });
+    const commits = data.commits || [];
+    if (!commits.length) {
+      toast(`Sin commits nuevos entre "${head}" y "${base}"`, 'info');
+      return;
+    }
+    const lines   = commits.map(c => `- \`${c.slice(0, 7)}\` ${c.slice(8)}`).join('\n');
+    const section = `## Commits incluidos\n\n${lines}\n`;
+    ta.value = ta.value.trimEnd()
+      ? ta.value.trimEnd() + '\n\n' + section
+      : section;
+    ta.focus();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+};
 
 // ─── PR Templates ─────────────────────────────────────────────────────────────
 

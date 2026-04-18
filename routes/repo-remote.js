@@ -5,7 +5,7 @@ const fs     = require('fs');
 const { spawn } = require('child_process');
 const simpleGit = require('simple-git');
 const { git }   = require('../lib/git');
-const { loadConfig } = require('../lib/config');
+const { loadRepoConfig } = require('../lib/config');
 const { handleGitError } = require('../lib/git-errors');
 const { isValidRefName } = require('../lib/validation');
 const logger = require('../lib/logger');
@@ -86,7 +86,7 @@ router.post('/pull', async (req, res) => {
   if (branch && !isValidRefName(branch)) return res.status(400).json({ error: 'Nombre de rama inválido.' });
   if (!isValidRefName(remote)) return res.status(400).json({ error: 'Nombre de remoto inválido.' });
 
-  const cfg = loadConfig();
+  const cfg = loadRepoConfig(repoPath);
   try {
     const opts = {};
     if (cfg.rebaseOnPull) opts['--rebase'] = null;
@@ -129,10 +129,24 @@ router.post('/push-production', async (req, res) => {
     }
     originalBranch = status.current;
     await g.checkout(productionBranch);
+
+    // Guardamos el HEAD antes del merge para poder hacer rollback si falla el push
+    let preMergeHead = null;
     if (mergeFrom && mergeFrom !== productionBranch) {
+      preMergeHead = (await g.raw(['rev-parse', 'HEAD'])).trim();
       await g.merge([mergeFrom, '--no-ff', '-m', `Merge ${mergeFrom} into ${productionBranch}`]);
     }
-    await g.raw(['push', remote, productionBranch]);
+
+    try {
+      await g.raw(['push', remote, productionBranch]);
+    } catch (pushErr) {
+      // Rollback: deshacer el merge que se hizo localmente
+      if (preMergeHead) {
+        try { await g.raw(['reset', '--hard', preMergeHead]); } catch (_) {}
+      }
+      throw pushErr;
+    }
+
     if (originalBranch && originalBranch !== productionBranch) await g.checkout(originalBranch);
     res.json({ success: true, message: `Push a "${productionBranch}" exitoso` });
   } catch (e) {
@@ -199,6 +213,52 @@ router.post('/remote/rename', async (req, res) => {
   if (/\s/.test(newName)) return res.status(400).json({ error: 'El nuevo nombre no puede contener espacios' });
   try {
     await git(repoPath).raw(['remote', 'rename', oldName, newName]);
+    res.json({ success: true });
+  } catch (e) {
+    handleGitError(res, e);
+  }
+});
+
+router.post('/open-folder', (req, res) => {
+  const { repoPath } = req.body;
+  if (!repoPath) return res.status(400).json({ error: 'Ruta requerida' });
+  const dir = path.normalize(repoPath);
+  try {
+    if (process.platform === 'win32') {
+      spawn('explorer', [dir], { detached: true, stdio: 'ignore' }).unref();
+    } else if (process.platform === 'darwin') {
+      spawn('open', [dir], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      spawn('xdg-open', [dir], { detached: true, stdio: 'ignore' }).unref();
+    }
+    res.json({ success: true });
+  } catch (e) {
+    handleGitError(res, e);
+  }
+});
+
+router.post('/open-terminal', (req, res) => {
+  const { repoPath } = req.body;
+  if (!repoPath) return res.status(400).json({ error: 'Ruta requerida' });
+  const dir = path.normalize(repoPath);
+  try {
+    if (process.platform === 'win32') {
+      const gitBashPaths = [
+        'C:\\Program Files\\Git\\git-bash.exe',
+        'C:\\Program Files (x86)\\Git\\git-bash.exe',
+      ];
+      const gitBash = gitBashPaths.find(p => fs.existsSync(p));
+      if (gitBash) {
+        spawn(gitBash, [`--cd=${dir}`], { detached: true, stdio: 'ignore' }).unref();
+      } else {
+        spawn('cmd', ['/c', 'start', '', '/D', dir, 'cmd.exe'], { detached: true, stdio: 'ignore' }).unref();
+      }
+    } else if (process.platform === 'darwin') {
+      spawn('open', ['-a', 'Terminal', dir], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      const term = process.env.TERMINAL || 'xterm';
+      spawn(term, [], { detached: true, stdio: 'ignore', cwd: dir }).unref();
+    }
     res.json({ success: true });
   } catch (e) {
     handleGitError(res, e);

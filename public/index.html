@@ -24,12 +24,8 @@
         <button id="btnLoadRepo" class="btn btn-primary">Abrir</button>
       </div>
       <div id="headerGitActions" class="header-group" style="display:none">
-        <button id="btnSync"    class="btn btn-secondary btn-xs" title="Fetch + Pull en un clic">⇄↓ Sync</button>
-        <button id="btnFetch"   class="btn btn-secondary btn-xs">⇄ Fetch</button>
-        <button id="btnPull"    class="btn btn-secondary btn-xs">↓ Pull</button>
-        <button id="btnPush"    class="btn btn-push btn-xs">↑ Push</button>
-        <button id="btnPushProd" class="btn btn-prod btn-xs">🚀 Prod</button>
-        <button id="btnCreatePR" class="btn btn-pr btn-xs">⎇ PR</button>
+        <button id="btnOpenFolder"   class="btn btn-secondary btn-xs" title="Abrir carpeta en el explorador">📁 Explorador</button>
+        <button id="btnOpenTerminal" class="btn btn-secondary btn-xs" title="Abrir Git Bash en esta carpeta">⌨ Terminal</button>
       </div>
     </div>
   </header>
@@ -59,6 +55,10 @@
       <button class="tb-btn" id="tbFetch">
         <span class="tb-icon">⟳</span>
         <span class="tb-label">Fetch</span>
+      </button>
+      <button class="tb-btn" id="tbSync" title="Fetch + Pull en un clic">
+        <span class="tb-icon">⇄↓</span>
+        <span class="tb-label">Sync</span>
       </button>
     </div>
     <div class="tb-sep"></div>
@@ -466,6 +466,7 @@
       </div>
       <div class="settings-tabs">
         <button class="settings-tab-btn active" onclick="switchSettingsTab('general')">General</button>
+        <button class="settings-tab-btn"        onclick="switchSettingsTab('repositorio')">Repositorio</button>
         <button class="settings-tab-btn"        onclick="switchSettingsTab('cuenta')">Cuenta</button>
         <button class="settings-tab-btn"        onclick="switchSettingsTab('remotos')">Remotos</button>
       </div>
@@ -554,6 +555,68 @@
               </div>
             </div>
           </fieldset>
+        </div>
+
+        <!-- ── Tab: Repositorio ── -->
+        <div id="settingsTabRepositorio" class="settings-tab-pane">
+          <div id="repoSettingsNoRepo" style="color:var(--tx3);font-size:12px;padding:16px 0">
+            Abre un repositorio para ver su configuración específica.
+          </div>
+          <div id="repoSettingsBody" style="display:none">
+            <div class="repo-settings-path" id="repoSettingsPathLabel" style="font-size:11px;color:var(--tx3);margin-bottom:12px;word-break:break-all"></div>
+            <fieldset class="form-group-set">
+              <legend>Ramas</legend>
+              <div class="form-row">
+                <label>Rama principal</label>
+                <input type="text" id="repoCfgMainBranch" placeholder="heredado de global" style="max-width:160px" />
+                <small>Sobreescribe la rama principal para este repositorio.</small>
+              </div>
+            </fieldset>
+            <fieldset class="form-group-set">
+              <legend>Sincronización</legend>
+              <div class="form-row">
+                <label class="check-label">
+                  <input type="checkbox" id="repoCfgRebaseOnPull" />
+                  Rebase en lugar de merge al hacer Pull
+                </label>
+              </div>
+              <div class="form-row">
+                <label class="check-label">
+                  <input type="checkbox" id="repoCfgAutoStash" />
+                  Auto-stash al cambiar de rama
+                </label>
+              </div>
+            </fieldset>
+            <fieldset class="form-group-set">
+              <legend>Vista</legend>
+              <div class="two-col">
+                <div class="form-row">
+                  <label>Líneas de contexto en diff</label>
+                  <select id="repoCfgDiffContext">
+                    <option value="">heredado de global</option>
+                    <option value="3">3</option>
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="99999">Completo</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <label>Límite de commits en log</label>
+                  <select id="repoCfgLogLimit">
+                    <option value="">heredado de global</option>
+                    <option value="100">100</option>
+                    <option value="250">250</option>
+                    <option value="500">500</option>
+                    <option value="1000">1 000</option>
+                  </select>
+                </div>
+              </div>
+            </fieldset>
+            <div class="repo-settings-actions" style="display:flex;gap:8px;margin-top:4px">
+              <button class="btn btn-primary btn-sm" onclick="saveRepoSettings()">Guardar para este repo</button>
+              <button class="btn btn-secondary btn-sm" onclick="clearRepoSettings()" title="Eliminar todos los ajustes específicos y volver a los globales">Restablecer a global</button>
+            </div>
+          </div>
         </div>
 
         <!-- ── Tab: Cuenta ── -->
@@ -676,6 +739,7 @@
               <button type="button" class="btn btn-xs" onclick="applyPRTemplate('fix')" title="Plantilla: corrección de bug">fix</button>
               <button type="button" class="btn btn-xs" onclick="applyPRTemplate('refactor')" title="Plantilla: refactorización">refactor</button>
               <button type="button" class="btn btn-xs" onclick="applyPRTemplate('general')" title="Plantilla general">…</button>
+              <button type="button" class="btn btn-xs" onclick="appendPRCommits()" title="Agregar lista de commits al final de la descripción">📋 commits</button>
             </span>
           </label>
           <textarea id="prBody" rows="5" placeholder="Describe los cambios incluidos…"></textarea>
