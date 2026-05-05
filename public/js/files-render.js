@@ -2,6 +2,7 @@ import { emit } from './bus.js';
 import { state } from './state.js';
 import { escHtml, escAttr, empty } from './utils.js';
 import { fileState } from './files-state.js';
+import { ic } from './icons.js';
 
 // ─── File Icons ───────────────────────────────────────────────────────────────
 
@@ -100,22 +101,24 @@ export function renderFileItem(f, listType, staged, displayName = null, indentPx
                data-path="${escAttr(f.path)}" data-list="${listType}"
                draggable="true"${style}
                onclick="fileItemClick(event,'${escAttr(f.path)}','${listType}',${staged})"
+               ondblclick="${staged ? `unstageFile('${escAttr(f.path)}')` : `stageFile('${escAttr(f.path)}')`}"
                oncontextmenu="fileCtxShow(event,'${escAttr(f.path)}','${listType}',${isUntracked})"
                ondragstart="fileDragStart(event,'${escAttr(f.path)}','${listType}')"
                ondragend="fileDragEnd(event)"
                title="${escAttr(f.path)}">
     <input type="checkbox" class="file-checkbox"
-      ${staged ? 'checked' : ''}
-      onclick="event.stopPropagation();event.preventDefault();${staged ? `unstageFile('${escAttr(f.path)}')` : `stageFile('${escAttr(f.path)}')`}"
-      title="${staged ? 'Quitar del stage' : 'Añadir al stage'}"
+      ${isSel ? 'checked' : ''}
+      onclick="checkboxItemClick(event,'${escAttr(f.path)}','${listType}',${staged})"
+      ondblclick="event.stopPropagation()"
+      title="Seleccionar"
     >
     <span class="file-icon">${fileIcon(f.path)}</span>
     <span class="file-status ${statusCode}">${statusCode}</span>
     <span class="file-name">${escHtml(name)}</span>
     ${conflictBadge}
     ${isConflicted || staged ? '' : `<div class="file-acts">
-           <button class="file-act delete"  onclick="event.stopPropagation();removeFile('${escAttr(f.path)}')"  title="Eliminar">🗑</button>
-           ${!isUntracked ? `<button class="file-act discard" onclick="event.stopPropagation();discardFile('${escAttr(f.path)}')" title="Descartar">⟲</button>` : ''}
+           <button class="file-act delete"  onclick="event.stopPropagation();removeFile('${escAttr(f.path)}')"  title="Eliminar">${ic.trash(13)}</button>
+           ${!isUntracked ? `<button class="file-act discard" onclick="event.stopPropagation();discardFile('${escAttr(f.path)}')" title="Descartar">${ic.rotateCcw(13)}</button>` : ''}
          </div>`}
   </div>`;
 }
@@ -155,8 +158,8 @@ function _updateViewToggleBtn(listType) {
   const btn    = document.getElementById(`btn${prefix}View`);
   if (!btn) return;
   const isTree = fileState.viewMode[listType] === 'tree';
-  btn.textContent = isTree ? '☰' : '⊞';
-  btn.title       = isTree ? 'Vista lista' : 'Vista árbol';
+  btn.innerHTML = isTree ? ic.listView() : ic.treeView();
+  btn.title     = isTree ? 'Vista lista' : 'Vista árbol';
   btn.classList.toggle('btn-active', isTree);
 
   const btnExpand   = document.getElementById(`btn${prefix}Expand`);
@@ -178,8 +181,8 @@ export function togglePanelMaximize(id) {
   if (!el) return;
   const isMax = el.classList.toggle('panel-maximized');
   el.querySelectorAll('.btn-maximize').forEach(btn => {
-    btn.textContent = isMax ? '⤡' : '⤢';
-    btn.title       = isMax ? 'Restaurar' : 'Maximizar';
+    btn.innerHTML = isMax ? ic.minimize() : ic.maximize();
+    btn.title     = isMax ? 'Restaurar' : 'Maximizar';
   });
 }
 

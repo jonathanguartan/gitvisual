@@ -81,6 +81,7 @@ a:hover { text-decoration: underline; }
 .btn-prod      { background: var(--purple); color: #1e1e2e; font-weight: 600; }
 .btn-pr        { background: var(--teal);   color: #1e1e2e; font-weight: 600; }
 .btn-danger    { background: var(--red);    color: #1e1e2e; font-weight: 600; }
+.btn-warn      { background: var(--yellow); color: #1e1e2e; font-weight: 600; }
 
 .btn-icon {
   background: transparent;

@@ -138,7 +138,7 @@ export function renderDiff(diff, filename = '') {
     } else if (l.startsWith('@@')) {
       flushDelBuf();
       const m = l.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-      if (m) { oldLn = parseInt(m[1]) - 1; newLn = parseInt(m[2]) - 1; }
+      if (m) { oldLn = Number.parseInt(m[1]) - 1; newLn = Number.parseInt(m[2]) - 1; }
       html += `<div class="dl hunk">${escHtml(l)}</div>`;
     } else if (/^(diff|index|\+\+\+|---)/.test(l)) {
       flushDelBuf();
@@ -201,7 +201,7 @@ export function renderDiffSplit(diff, filename = '') {
     else if (l.startsWith('@@')) {
       flushChange();
       const m = l.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-      if (m) { leftLn = parseInt(m[1]) - 1; rightLn = parseInt(m[2]) - 1; }
+      if (m) { leftLn = Number.parseInt(m[1]) - 1; rightLn = Number.parseInt(m[2]) - 1; }
       const hunkHtml = `<div class="split-hunk">${escHtml(l)}</div>`;
       leftHtml += hunkHtml; rightHtml += hunkHtml;
     } else if (/^(diff|index|\+\+\+|---)/.test(l)) {
@@ -295,8 +295,8 @@ export function renderDiffHunkStage(diff, filename = '', staged = false) {
     const hunkLines = hunk.lines;
     let _delBuf = []; // { code, oln }
     const m = hunk.header.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-    let oldLn = m ? parseInt(m[1]) - 1 : 0;
-    let newLn = m ? parseInt(m[2]) - 1 : 0;
+    let oldLn = m ? Number.parseInt(m[1]) - 1 : 0;
+    let newLn = m ? Number.parseInt(m[2]) - 1 : 0;
 
     const flushDelBuf = () => {
       for (const { code, oln } of _delBuf)

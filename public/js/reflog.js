@@ -1,6 +1,7 @@
 import { get, post } from './api.js';
 import { escHtml, relTime, toast, openModal, spinner, empty } from './utils.js';
 import { emit } from './bus.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Reflog Panel ─────────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ async function loadReflog() {
 }
 
 export async function reflogCheckout(hash) {
-  if (!confirm(`¿Hacer checkout del commit ${hash.slice(0,7)}?\nQuedarás en modo "detached HEAD".`)) return;
+  if (!await dialog.confirm(`¿Hacer checkout del commit ${hash.slice(0,7)}?\nQuedarás en modo "detached HEAD".`, { type: 'warn', confirmText: 'Checkout' })) return;
   try {
     await post('/repo/branch/checkout', { branchName: hash });
     emit('repo:refresh');

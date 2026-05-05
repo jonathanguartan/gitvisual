@@ -40,13 +40,17 @@ router.get('/branches/tracking', async (req, res) => {
     const result = {};
     for (const line of out.trim().split('\n').filter(Boolean)) {
       const [name, upstream, track] = line.split('|');
+      const trimmedUpstream = upstream?.trim() || null;
       const aheadMatch  = track?.match(/ahead (\d+)/);
       const behindMatch = track?.match(/behind (\d+)/);
+      // [gone] aparece cuando el remote de la rama fue borrado en el servidor
+      const isGone = !!(trimmedUpstream && track?.includes('[gone]'));
       result[name.trim()] = {
-        upstream:    upstream?.trim() || null,
-        hasUpstream: !!(upstream?.trim()),
-        ahead:       aheadMatch  ? parseInt(aheadMatch[1])  : 0,
-        behind:      behindMatch ? parseInt(behindMatch[1]) : 0,
+        upstream:    trimmedUpstream,
+        hasUpstream: !!trimmedUpstream,
+        isGone,
+        ahead:  aheadMatch  ? Number.parseInt(aheadMatch[1])  : 0,
+        behind: behindMatch ? Number.parseInt(behindMatch[1]) : 0,
       };
     }
     res.json(result);
@@ -331,7 +335,7 @@ router.get('/branches/merged', async (req, res) => {
 // Squash de los últimos N commits en uno solo
 router.post('/branch/squash', async (req, res) => {
   const { repoPath, count, message } = req.body;
-  const n = parseInt(count);
+  const n = Number.parseInt(count);
   if (!n || n < 2) return res.status(400).json({ error: 'Selecciona al menos 2 commits para hacer squash' });
   if (!message?.trim()) return res.status(400).json({ error: 'El mensaje del commit no puede estar vacío' });
   try {

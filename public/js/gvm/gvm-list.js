@@ -130,7 +130,7 @@ export class GvmList extends GvmComponent {
   _onClick(e) {
     const itemEl = this._findItemEl(e);
     if (!itemEl) return;
-    const idx = parseInt(itemEl.dataset.gvmIdx, 10);
+    const idx = Number.parseInt(itemEl.dataset.gvmIdx, 10);
     if (isNaN(idx)) return;
 
     const item = this._items[idx];
@@ -165,7 +165,7 @@ export class GvmList extends GvmComponent {
     const itemEl = this._findItemEl(e);
     if (!itemEl) return;
     e.preventDefault();
-    const idx = parseInt(itemEl.dataset.gvmIdx, 10);
+    const idx = Number.parseInt(itemEl.dataset.gvmIdx, 10);
     if (isNaN(idx)) return;
 
     // Right-click on unselected item → select it first
@@ -260,7 +260,7 @@ export class GvmList extends GvmComponent {
       this._renderVirtual();
     } else {
       this._el.querySelectorAll('.gvm-item').forEach(el => {
-        const idx = parseInt(el.dataset.gvmIdx, 10);
+        const idx = Number.parseInt(el.dataset.gvmIdx, 10);
         const sel = this._selected.has(idx);
         const foc = this._focused === idx;
         el.classList.toggle('gvm-selected', sel);

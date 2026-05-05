@@ -2,12 +2,13 @@ import { state, tabs, activeTabId, saveSession } from './state.js';
 import { get, post, api } from './api.js';
 import { toast, openModal, escHtml, escAttr } from './utils.js';
 import { on, emit } from './bus.js';
-import { renderBranches, renderRepoInfo } from './branches.js';
+import { renderBranches, renderRepoInfo, setSelectedBranch } from './branches.js';
 import { renderStatus, invalidateCleanCache } from './files.js';
 import { renderTags } from './tags.js';
 import { renderStashList } from './stash.js';
 import { startAutoFetch } from './sync.js';
 import { resetLogState } from './log.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Repo Loading ─────────────────────────────────────────────────────────────
 
@@ -40,13 +41,14 @@ export async function loadRepo(repoPath) {
     const check = await api('GET', `/repo/check?repoPath=${encodeURIComponent(repoPath)}`);
 
     if (!check.isRepo) {
-      const init = confirm(`"${repoPath}" no es un repositorio Git.\n¿Deseas inicializarlo ahora?`);
+      const init = await dialog.confirm(`"${repoPath}" no es un repositorio Git.\n¿Deseas inicializarlo ahora?`, { type: 'info', confirmText: 'Inicializar' });
       if (!init) return;
       await api('POST', '/repo/init', { repoPath });
       toast('Repositorio Git inicializado', 'success');
     }
 
     resetLogState();
+    setSelectedBranch(null);
     state.repoPath = repoPath;
     state.isLazy = false;
     document.getElementById('repoPath').value = repoPath;
@@ -59,6 +61,16 @@ export async function loadRepo(repoPath) {
     document.getElementById('welcome').style.display    = 'none';
     document.getElementById('mainLayout').style.display = 'flex';
     document.getElementById('toolbar').style.display    = 'flex';
+
+    // Mostrar los botones de acciones del repo y ocultar los de bienvenida
+    document.getElementById('headerWelcomeActions').style.display = 'none';
+    document.getElementById('headerGitActions').style.display     = 'flex';
+
+    // Cambiar el input de ruta editable por el display de solo lectura
+    document.getElementById('repoPath').style.display = 'none';
+    const pathDisplay = document.getElementById('repoPathDisplay');
+    pathDisplay.textContent   = repoPath;
+    pathDisplay.style.display = 'flex';
 
     await refreshAll();
     window.renderTabBar();
@@ -384,4 +396,5 @@ window.renderStashList  = renderStashList;
 on('repo:refresh',          () => refreshAll());
 on('repo:refresh-status',   () => refreshStatus());
 on('repo:refresh-branches', () => refreshBranches());
+on('repo:refresh-info',     () => refreshInfo());
 on('repo:load',             path => loadRepo(path));

@@ -27,7 +27,7 @@ async function _getAheadCommits(g, remote, branch, isFirstPush) {
 }
 
 router.post('/push', async (req, res) => {
-  const { repoPath, remote = 'origin', branch, setUpstream = false, batched = false, batchSize = 20 } = req.body;
+  const { repoPath, remote = 'origin', branch, setUpstream = false, batched = false, batchSize = 20, skipMergeCheck = false } = req.body;
   if (!branch || !isValidRefName(branch)) return res.status(400).json({ error: 'Nombre de rama inválido. Asegúrate de tener una rama activa antes de hacer push.' });
   if (!isValidRefName(remote)) return res.status(400).json({ error: 'Nombre de remoto inválido.' });
 
@@ -41,28 +41,48 @@ router.post('/push', async (req, res) => {
       return res.status(400).json({ error: `La rama "${branch}" no tiene commits aún. Haz al menos un commit antes de hacer push.` });
     }
 
+    // Advertir si la rama ya fue mergeada en main/master.
+    // Solo aplica si la rama fue publicada antes: setUpstream=true indica primer push,
+    // y aunque refs/remotes exista localmente (por fetch), no debe activar el chequeo.
+    // Se omite para ramas principales (main/master) ya que son trivialmente ancestro de sí mismas.
+    const cfg = loadRepoConfig(repoPath);
+    const mainBranches = new Set(['main', 'master', cfg.mainBranch].filter(Boolean));
+    if (!skipMergeCheck && !setUpstream && !mainBranches.has(branch)) {
+      const wasPushed = await g.raw(['rev-parse', '--verify', `refs/remotes/${remote}/${branch}`]).then(() => true).catch(() => false);
+      if (wasPushed) {
+        const remoteRef = `refs/remotes/${remote}/${branch}`;
+        for (const target of [`${remote}/main`, `${remote}/master`]) {
+          try {
+            await g.raw(['merge-base', '--is-ancestor', remoteRef, target]);
+            const base = target.replace(`${remote}/`, '');
+            return res.json({ merged: true, warning: `La rama "${branch}" ya fue mergeada en "${base}". ¿Hacer push de todas formas?` });
+          } catch (_) {}
+        }
+      }
+    }
+
     if (batched) {
       const isFirstPush = !!setUpstream;
       const commits = await _getAheadCommits(g, remote, branch, isFirstPush);
 
       if (commits.length === 0) {
-        const args = ['push'];
-        if (setUpstream) args.push('-u');
-        args.push(remote, branch);
-        await g.raw(args);
+        await g.raw(['push', remote, branch]);
       } else {
         const batches = [];
         for (let i = 0; i < commits.length; i += batchSize) {
           batches.push(commits[Math.min(i + batchSize - 1, commits.length - 1)]);
         }
         for (let i = 0; i < batches.length; i++) {
-          const isLast = i === batches.length - 1;
-          const args   = ['push'];
-          if (isLast && setUpstream) args.push('-u');
-          args.push(remote, `${batches[i]}:refs/heads/${branch}`);
-          await g.raw(args);
+          await g.raw(['push', remote, `${batches[i]}:refs/heads/${branch}`]);
         }
       }
+
+      // git push -u no funciona cuando el refspec local es un hash (no una rama),
+      // así que el tracking se asigna explícitamente después de todos los batches.
+      if (setUpstream) {
+        try { await g.raw(['branch', '--set-upstream-to', `${remote}/${branch}`, branch]); } catch (_) {}
+      }
+
       return res.json({ success: true, batches: Math.ceil((commits.length || 1) / batchSize) });
     }
 

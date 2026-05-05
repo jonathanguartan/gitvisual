@@ -1,5 +1,7 @@
+const fs     = require('fs');
+const path   = require('path');
 const router = require('express').Router();
-const { git } = require('../lib/git');
+const { git }            = require('../lib/git');
 const { handleGitError } = require('../lib/git-errors');
 const { validateRepoPath } = require('../lib/validation');
 
@@ -13,6 +15,82 @@ function parseStashMessage(raw) {
   if (!m) return { branch: '', description: raw };
   return { branch: m[2].trim(), description: m[3].trim(), wip: m[1] === 'WIP on' };
 }
+
+// Git no puede ni empezar: ficheros locales bloquean la aplicación del stash
+function isPreventedError(msg) {
+  return msg.includes('would be overwritten') || msg.includes('already exists, no checkout');
+}
+
+// Git aplicó lo que pudo pero dejó marcadores de conflicto (<<<) en los archivos
+function isMergeConflict(msg) {
+  return msg.includes('CONFLICT') || msg.includes('Merge conflict');
+}
+
+// Extrae la lista de archivos del mensaje de error "would be overwritten".
+// Git usa varios formatos según la versión y el tipo de conflicto:
+//   Formato 1 — lista bajo encabezado terminado en ':':
+//     "Your local changes to the following files would be overwritten by merge:\n\tfile.js"
+//   Formato 2 — inline con comillas simples:
+//     "Entry 'file.js' would be overwritten by merge."
+function parsePreventedFiles(msg) {
+  const files = new Set();
+  const lines = msg.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!/would be overwritten|already exists/.test(lines[i])) continue;
+    for (let j = i + 1; j < lines.length; j++) {
+      const trimmed = lines[j].trim();
+      if (!trimmed) continue;
+      if (/^(Please|Aborting|hint:|Merge |Changes |nothing )/.test(trimmed)) break;
+      if (/^\(use /.test(trimmed)) continue;
+      const filePath = trimmed.replace(/^(modified|added|deleted|renamed|copied|unmerged|untracked):\s+/i, '').trim();
+      if (filePath && !filePath.startsWith('(')) files.add(filePath);
+    }
+    break;
+  }
+
+  for (const m of msg.matchAll(/'([^']+)' would be overwritten/g)) files.add(m[1]);
+
+  return [...files];
+}
+
+// Incrementa el índice numérico de un ref de stash: stash@{N} → stash@{N+1}
+function shiftRef(ref) {
+  if (!ref) return 'stash@{1}';
+  return ref.replace(/\{(\d+)\}/, (_, n) => `{${Number.parseInt(n, 10) + 1}}`);
+}
+
+// Compara el contenido de cada archivo bloqueado entre el stash y el working tree.
+// Devuelve { identical: [...], different: [...] }.
+// Los archivos que no se pueden leer se clasifican como "different" (seguro por defecto).
+async function classifyBlockedFiles(repoPath, ref, files) {
+  const identical = [];
+  const different = [];
+  const normalize = s => s.replace(/\r\n/g, '\n');
+
+  for (const file of files) {
+    try {
+      const stashContent  = await git(repoPath).show([`${ref}:${file}`]);
+      const workingContent = fs.readFileSync(path.join(repoPath, file), 'utf8');
+      (normalize(stashContent) === normalize(workingContent) ? identical : different).push(file);
+    } catch {
+      different.push(file);
+    }
+  }
+
+  return { identical, different };
+}
+
+// Construye la respuesta "prevented" con clasificación de archivos bloqueados.
+async function preventedResponse(repoPath, ref, errMsg) {
+  const files = parsePreventedFiles(errMsg);
+  const { identical, different } = files.length
+    ? await classifyBlockedFiles(repoPath, ref || 'stash@{0}', files)
+    : { identical: [], different: [] };
+  return { conflict: true, type: 'prevented', files, identical, different, rawMsg: errMsg };
+}
+
+// ─── Routes ──────────────────────────────────────────────────────────────────
 
 router.get('/stash/list', async (req, res) => {
   const { repoPath } = req.query;
@@ -42,30 +120,24 @@ router.post('/stash', async (req, res) => {
   }
 });
 
-// Incrementa el índice numérico de un ref de stash: stash@{N} → stash@{N+1}
-function shiftRef(ref) {
-  if (!ref) return 'stash@{1}';
-  return ref.replace(/\{(\d+)\}/, (_, n) => `{${parseInt(n, 10) + 1}}`);
-}
-
-// Git no puede ni empezar: ficheros locales bloquean la aplicación del stash
-function isPreventedError(msg) {
-  return msg.includes('would be overwritten') || msg.includes('already exists, no checkout');
-}
-
-// Git aplicó lo que pudo pero dejó marcadores de conflicto (<<<) en los archivos
-function isMergeConflict(msg) {
-  return msg.includes('CONFLICT') || msg.includes('Merge conflict');
-}
-
 router.post('/stash/pop', async (req, res) => {
-  const { repoPath, ref, autoStash } = req.body;
+  const { repoPath, ref, autoStash, discardFiles } = req.body;
   try {
+    if (discardFiles?.length) {
+      for (const file of discardFiles) {
+        await git(repoPath).checkout(['--', file]);
+      }
+    }
     if (autoStash) {
       const out = await git(repoPath).stash(['push', '--include-untracked', '-m', `Auto-stash antes de aplicar ${ref || 'stash'}`]);
       const didStash = !out.includes('No local changes to save');
-      const target = didStash ? shiftRef(ref) : (ref || 'stash@{0}');
-      await git(repoPath).stash(['pop', target]);
+      const target   = didStash ? shiftRef(ref) : (ref || 'stash@{0}');
+      try {
+        await git(repoPath).stash(['pop', target]);
+      } catch (applyErr) {
+        if (isMergeConflict(applyErr.message)) return res.json({ conflict: true, type: 'merge' });
+        throw applyErr;
+      }
     } else {
       await git(repoPath).stash(ref ? ['pop', ref] : ['pop']);
     }
@@ -74,19 +146,29 @@ router.post('/stash/pop', async (req, res) => {
     if (!autoStash && isMergeConflict(e.message))
       return res.json({ conflict: true, type: 'merge' });
     if (!autoStash && isPreventedError(e.message))
-      return res.json({ conflict: true, type: 'prevented' });
+      return res.json(await preventedResponse(repoPath, ref, e.message));
     handleGitError(res, e);
   }
 });
 
 router.post('/stash/apply', async (req, res) => {
-  const { repoPath, ref, autoStash } = req.body;
+  const { repoPath, ref, autoStash, discardFiles } = req.body;
   try {
+    if (discardFiles?.length) {
+      for (const file of discardFiles) {
+        await git(repoPath).checkout(['--', file]);
+      }
+    }
     if (autoStash) {
       const out = await git(repoPath).stash(['push', '--include-untracked', '-m', `Auto-stash antes de aplicar ${ref || 'stash'}`]);
       const didStash = !out.includes('No local changes to save');
-      const target = didStash ? shiftRef(ref) : (ref || 'stash@{0}');
-      await git(repoPath).stash(['apply', target]);
+      const target   = didStash ? shiftRef(ref) : (ref || 'stash@{0}');
+      try {
+        await git(repoPath).stash(['apply', target]);
+      } catch (applyErr) {
+        if (isMergeConflict(applyErr.message)) return res.json({ conflict: true, type: 'merge' });
+        throw applyErr;
+      }
     } else {
       await git(repoPath).stash(ref ? ['apply', ref] : ['apply']);
     }
@@ -95,7 +177,7 @@ router.post('/stash/apply', async (req, res) => {
     if (!autoStash && isMergeConflict(e.message))
       return res.json({ conflict: true, type: 'merge' });
     if (!autoStash && isPreventedError(e.message))
-      return res.json({ conflict: true, type: 'prevented' });
+      return res.json(await preventedResponse(repoPath, ref, e.message));
     handleGitError(res, e);
   }
 });

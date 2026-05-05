@@ -1,9 +1,9 @@
-import { state } from './state.js';
 import { opPost, post } from './api.js';
 import { toast } from './utils.js';
 import { showDiff } from './diff.js';
 import { fileState } from './files-state.js';
 import { emit } from './bus.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Selection UI helpers ─────────────────────────────────────────────────────
 
@@ -22,13 +22,24 @@ export function updateSelectionBars() {
   }
 }
 
+export function checkboxItemClick(event, path, listType, staged) {
+  event.stopPropagation();
+  toggleFileSelection(path, listType);
+  fileState.lastClicked[listType] = path;
+  setActiveDiff(path, listType);
+  showDiff(path, staged);
+}
+
 export function toggleFileSelection(path, listType) {
   const sel = fileState.selected[listType];
   if (sel.has(path)) sel.delete(path);
   else               sel.add(path);
   updateSelectionBars();
   document.querySelectorAll(`.file-item[data-list="${listType}"]`).forEach(el => {
-    el.classList.toggle('selected', sel.has(el.dataset.path));
+    const isSel = sel.has(el.dataset.path);
+    el.classList.toggle('selected', isSel);
+    const cb = el.querySelector('.file-checkbox');
+    if (cb) cb.checked = isSel;
   });
 }
 
@@ -39,7 +50,11 @@ export function clearFileSelection(listType) {
     fileState.selected.staged.clear();
     fileState.selected.unstaged.clear();
   }
-  document.querySelectorAll('.file-item.selected').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.file-item.selected').forEach(el => {
+    el.classList.remove('selected');
+    const cb = el.querySelector('.file-checkbox');
+    if (cb) cb.checked = false;
+  });
   updateSelectionBars();
 }
 
@@ -63,10 +78,9 @@ export function clearActiveDiff() {
 // ─── File list for shift-select ───────────────────────────────────────────────
 
 function _getFilePathsForList(listType) {
-  const files = state.status?.files || [];
-  return listType === 'staged'
-    ? files.filter(f => f.index !== ' ' && f.index !== '?').map(f => f.path)
-    : files.filter(f => f.working_dir !== ' ').map(f => f.path);
+  const id = listType === 'staged' ? 'stagedFiles' : 'unstagedFiles';
+  return [...document.querySelectorAll(`#${id} .file-item[data-list="${listType}"]`)]
+    .map(el => el.dataset.path);
 }
 
 // ─── Click handler ────────────────────────────────────────────────────────────
@@ -105,12 +119,16 @@ export function fileItemClick(event, _p, _lt, staged) {
     const currIdx = paths.indexOf(path);
     if (lastIdx === -1 || currIdx === -1) {
       toggleFileSelection(path, listType);
+      fileState.lastClicked[listType] = path;
     } else {
       const [from, to] = lastIdx < currIdx ? [lastIdx, currIdx] : [currIdx, lastIdx];
       for (let i = from; i <= to; i++) fileState.selected[listType].add(paths[i]);
       updateSelectionBars();
       document.querySelectorAll(`.file-item[data-list="${listType}"]`).forEach(el => {
-        el.classList.toggle('selected', fileState.selected[listType].has(el.dataset.path));
+        const isSel = fileState.selected[listType].has(el.dataset.path);
+        el.classList.toggle('selected', isSel);
+        const cb = el.querySelector('.file-checkbox');
+        if (cb) cb.checked = isSel;
       });
     }
   } else {
@@ -148,7 +166,7 @@ export async function unstageSelected() {
 export async function discardSelected() {
   const files = [...fileState.selected.unstaged];
   if (!files.length) return;
-  if (!confirm(`¿Descartar cambios en ${files.length} archivo(s)? Esta acción no se puede deshacer.`)) return;
+  if (!await dialog.confirm(`¿Descartar cambios en ${files.length} archivo(s)?\nEsta acción no se puede deshacer.`, { type: 'danger', confirmText: 'Descartar' })) return;
   try {
     await opPost('/repo/discard', { files }, 'Descartando cambios…');
     clearFileSelection('unstaged');
@@ -159,7 +177,7 @@ export async function discardSelected() {
 export async function untrackSelected() {
   const files = [...fileState.selected.staged];
   if (!files.length) return;
-  if (!confirm(`¿Quitar ${files.length} archivo(s) del tracking de git?\nQuedarán como no rastreados pero NO se eliminarán del disco.`)) return;
+  if (!await dialog.confirm(`¿Quitar ${files.length} archivo(s) del tracking de git?\nQuedarán como no rastreados pero NO se eliminarán del disco.`, { type: 'warn', confirmText: 'Quitar' })) return;
   try {
     await opPost('/repo/untrack', { files }, 'Quitando del tracking…');
     clearFileSelection('staged');

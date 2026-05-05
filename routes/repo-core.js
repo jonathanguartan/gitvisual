@@ -188,7 +188,7 @@ router.get('/log', async (req, res) => {
     const g   = git(repoPath);
     const SEP = '|||';
     const fmt = `%H${SEP}%P${SEP}%an${SEP}%aI${SEP}%D${SEP}%s`;
-    const args = ['log', `--format=${fmt}`, `--max-count=${parseInt(limit)}`];
+    const args = ['log', `--format=${fmt}`, `--max-count=${Number.parseInt(limit)}`];
     if (branch) args.push(branch);
     else        args.push('--all');
     if (search) { args.push('--grep'); args.push(search); }
@@ -240,7 +240,7 @@ router.get('/reflog', async (req, res) => {
     const out = await git(repoPath).raw([
       'reflog',
       '--format=%H|%gd|%gs|%aI|%cr',
-      `-n`, String(parseInt(limit)),
+      `-n`, String(Number.parseInt(limit)),
     ]);
     const entries = out.trim().split('\n').filter(Boolean).map(line => {
       const [hash, ref, subject, date, ago] = line.split('|');
@@ -272,12 +272,12 @@ router.get('/blame', async (req, res) => {
       const headerMatch = lines[i].match(/^([0-9a-f]{40}) \d+ (\d+)/);
       if (headerMatch) {
         const hash = headerMatch[1];
-        const lineNum = parseInt(headerMatch[2]);
+        const lineNum = Number.parseInt(headerMatch[2]);
         let author = '', date = '', summary = '';
         i++;
         while (i < lines.length && !lines[i].startsWith('\t')) {
           if (lines[i].startsWith('author '))           author  = lines[i].slice(7);
-          else if (lines[i].startsWith('author-time ')) date    = new Date(parseInt(lines[i].slice(12)) * 1000).toISOString();
+          else if (lines[i].startsWith('author-time ')) date    = new Date(Number.parseInt(lines[i].slice(12)) * 1000).toISOString();
           else if (lines[i].startsWith('summary '))     summary = lines[i].slice(8);
           i++;
         }

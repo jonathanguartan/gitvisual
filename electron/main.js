@@ -4,6 +4,14 @@ const fs      = require('fs');
 const zlib    = require('zlib');
 const updater = require('./updater');
 
+// ─── Single-instance lock ──────────────────────────────────────────────────────
+// Si ya hay una instancia corriendo, enfocar su ventana y salir inmediatamente
+// (antes de arrancar el servidor, para no colgar el splash).
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
 // Iniciar el servidor Express antes de crear ventanas
 const server = require('../server');
 
@@ -226,6 +234,15 @@ function createTray(port) {
 }
 
 // ─── Ciclo de vida de la app ───────────────────────────────────────────────────
+
+// Segunda instancia intentó abrirse → traer la ventana existente al frente
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+});
 
 app.whenReady().then(() => {
   // Mostrar splash inmediatamente

@@ -39,7 +39,7 @@ router.get('/commit/files', async (req, res) => {
     statOut.trim().split('\n').filter(Boolean).forEach(line => {
       const [add, del, ...pathParts] = line.split('\t');
       const p = pathParts.join('\t');
-      statsMap[p] = { add: parseInt(add, 10) || 0, del: parseInt(del, 10) || 0 };
+      statsMap[p] = { add: Number.parseInt(add, 10) || 0, del: Number.parseInt(del, 10) || 0 };
     });
 
     const files = nsOut.trim().split('\n').filter(Boolean).map(line => {
@@ -118,8 +118,9 @@ router.post('/commit', async (req, res) => {
 
 router.post('/commit/revert', async (req, res) => {
   const { repoPath, hash } = req.body;
+  if (!isValidHash(hash)) return res.status(400).json({ error: 'Hash inválido' });
   try {
-    await git(repoPath).revert([hash, '--no-edit']);
+    await git(repoPath).raw(['revert', '--no-edit', hash]);
     res.json({ success: true });
   } catch (e) {
     handleGitError(res, e);

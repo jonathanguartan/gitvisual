@@ -4,6 +4,8 @@ import { escHtml, escAttr, toast, openModal, closeModal, spinner } from './utils
 import { renderDiff } from './diff.js';
 import { emit } from './bus.js';
 import { isValidRefName } from './validation.js';
+import { setSelectedBranch } from './branches-render.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Helpers internos ─────────────────────────────────────────────────────────
 
@@ -37,6 +39,7 @@ export function viewBranchLog(name) {
   document.querySelector('.side-nav-btn[data-panel="log"]').classList.add('active');
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-log').classList.add('active');
+  setSelectedBranch(name);
   window.loadLog(name);
 }
 
@@ -45,7 +48,7 @@ export function viewBranchLog(name) {
 export async function checkoutBranch(name) {
   if (name === state.currentBranch) return;
   const pending = (state.status?.files || []).filter(f => f.index !== ' ' || f.working_dir !== ' ').length;
-  if (pending > 0 && !confirm(`Tienes ${pending} cambios sin commitear. ¿Cambiar a "${name}" de todos modos?`)) return;
+  if (pending > 0 && !await dialog.confirm(`Tienes ${pending} cambios sin commitear.\n¿Cambiar a "${name}" de todos modos?`, { type: 'warn', confirmText: 'Cambiar' })) return;
   showStatusLoading();
   try {
     await post('/repo/branch/checkout', { branchName: name });
@@ -71,7 +74,7 @@ export async function checkoutRemoteBranch(fullRemoteName) {
   }
 
   const pending = (state.status?.files || []).filter(f => f.index !== ' ' || f.working_dir !== ' ').length;
-  if (pending > 0 && !confirm(`Tienes ${pending} cambios sin commitear. ¿Crear y cambiar a "${localName}" de todos modos?`)) return;
+  if (pending > 0 && !await dialog.confirm(`Tienes ${pending} cambios sin commitear.\n¿Crear y cambiar a "${localName}" de todos modos?`, { type: 'warn', confirmText: 'Cambiar' })) return;
 
   showStatusLoading();
   try {
@@ -159,7 +162,7 @@ export async function confirmDeleteRemoteBranch(upstream) {
   const parts        = upstream.split('/');
   const remote       = parts[0];
   const remoteBranch = parts.slice(1).join('/');
-  if (!confirm(`¿Eliminar la rama remota "${upstream}"?\nEsta acción no se puede deshacer.`)) return;
+  if (!await dialog.confirm(`¿Eliminar la rama remota "${upstream}"?\nEsta acción no se puede deshacer.`, { type: 'danger', confirmText: 'Eliminar' })) return;
   try {
     await opPost('/repo/branch/delete-remote', { remote, branch: remoteBranch }, `Eliminando ${upstream}…`);
     emit('repo:refresh-branches');
@@ -548,7 +551,7 @@ export async function openMergedBranchesModal() {
 export async function deleteSelectedMergedBranches() {
   const checks = [...document.querySelectorAll('.merged-branch-chk:checked')];
   if (checks.length === 0) { toast('Selecciona al menos una rama', 'warn'); return; }
-  if (!confirm(`¿Eliminar ${checks.length} rama(s) mergeada(s)?`)) return;
+  if (!await dialog.confirm(`¿Eliminar ${checks.length} rama(s) mergeada(s)?`, { type: 'danger', confirmText: 'Eliminar' })) return;
   let ok = 0, fail = 0;
   for (const chk of checks) {
     try {

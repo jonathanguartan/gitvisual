@@ -25,7 +25,7 @@ function _save(key, size) {
 function _load(key) {
   try {
     const v = localStorage.getItem(_PREFIX + key);
-    return v != null ? parseFloat(v) : NaN;
+    return v != null ? Number.parseFloat(v) : NaN;
   } catch (_) { return NaN; }
 }
 
@@ -48,8 +48,8 @@ export class GvmPane extends GvmComponent {
     super(el);
     const ds = el.dataset;
     this._dir        = ds.dir                    || 'col';
-    this._min        = parseFloat(ds.min  ?? 40);
-    this._max        = parseFloat(ds.max  ?? 2000);
+    this._min        = Number.parseFloat(ds.min  ?? 40);
+    this._max        = Number.parseFloat(ds.max  ?? 2000);
     this._key        = ds.storage                || null;
     this._targetSel  = ds.target                 || null;
     this._uncollapse = ds.uncollapse === 'true';

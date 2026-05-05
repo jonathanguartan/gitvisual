@@ -2,6 +2,7 @@ import { initAllGvmPanes, ensurePaneVisible } from './gvm/gvm-pane.js';
 import { initAllGvmLists } from './gvm/gvm-lists.js';
 import { initAllGvmEditors } from './gvm/gvm-editors.js';
 import { initAllGvmContextMenus } from './gvm/gvm-ctx-menus.js';
+import { initGvmDialog, dialog } from './gvm/gvm-dialog.js';
 import { state } from './state.js';
 import { escHtml, escAttr, toast, openModal, spinner, empty } from './utils.js';
 import { loadLog } from './log.js';
@@ -122,6 +123,7 @@ initAllGvmPanes();
 initAllGvmLists();
 initAllGvmEditors();
 initAllGvmContextMenus();
+initGvmDialog();
 
 export function ensureSplitVisible(selector, direction, minVisible) {
   ensurePaneVisible(selector, direction, minVisible);
@@ -129,6 +131,7 @@ export function ensureSplitVisible(selector, direction, minVisible) {
 
 // ─── Window assignments for HTML onclick handlers ────────────────────────────
 
+window.dialog            = dialog;
 window.buildBreadcrumb   = buildBreadcrumb;
 window.switchToPanel     = switchToPanel;
 window.updateCommitBadge = updateCommitBadge;

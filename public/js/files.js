@@ -10,14 +10,14 @@
  */
 
 export { renderStatus, fileIcon, setCount, setFileFilter, toggleFileView, toggleTreeFolder, expandAllTree, collapseAllTree, togglePanelMaximize, setFileSearch, invalidateCleanCache } from './files-render.js';
-export { fileItemClick, toggleFileSelection, clearFileSelection, stageSelected, unstageSelected, discardSelected, untrackSelected, stageOrUnstageActiveFile, fileDragStart, fileDragEnd, fileDragOver, fileDragLeave, fileDrop } from './files-select.js';
+export { fileItemClick, checkboxItemClick, toggleFileSelection, clearFileSelection, stageSelected, unstageSelected, discardSelected, untrackSelected, stageOrUnstageActiveFile, fileDragStart, fileDragEnd, fileDragOver, fileDragLeave, fileDrop } from './files-select.js';
 export { stageFile, unstageFile, discardFile, removeFile, removeFolder, openFileInEditor, resolveConflictSide, fileCtxShow, fileCtxAction, folderCtxShow, folderCtxAction } from './files-ops.js';
 export { openFileHistory, fhRowClick, filterFileHistory, toggleFhMaximize, showFileHistoryDiff, toggleFhList, openBlame, toggleBlameMaximize } from './files-history.js';
 export { openGitignoreEditor, saveGitignore, openAddToGitignoreModal, selectGiOption, selectGiCustom, _updateGiCustomPreview, confirmAddToGitignore } from './files-gitignore.js';
 
 // ─── Imports para window assignments ─────────────────────────────────────────
 import { renderStatus, fileIcon, setCount, setFileFilter, toggleFileView, toggleTreeFolder, expandAllTree, collapseAllTree, togglePanelMaximize, setFileSearch } from './files-render.js';
-import { fileItemClick, toggleFileSelection, clearFileSelection, stageSelected, unstageSelected, discardSelected, untrackSelected, stageOrUnstageActiveFile, fileDragStart, fileDragEnd, fileDragOver, fileDragLeave, fileDrop } from './files-select.js';
+import { fileItemClick, checkboxItemClick, toggleFileSelection, clearFileSelection, stageSelected, unstageSelected, discardSelected, untrackSelected, stageOrUnstageActiveFile, fileDragStart, fileDragEnd, fileDragOver, fileDragLeave, fileDrop } from './files-select.js';
 import { stageFile, unstageFile, discardFile, removeFile, removeFolder, openFileInEditor, resolveConflictSide, fileCtxShow, fileCtxAction, folderCtxShow, folderCtxAction } from './files-ops.js';
 import { openFileHistory, fhRowClick, filterFileHistory, toggleFhMaximize, showFileHistoryDiff, toggleFhList, openBlame, toggleBlameMaximize } from './files-history.js';
 import { openGitignoreEditor, saveGitignore, openAddToGitignoreModal, selectGiOption, selectGiCustom, _updateGiCustomPreview, confirmAddToGitignore } from './files-gitignore.js';
@@ -33,6 +33,7 @@ window.fileCtxShow         = fileCtxShow;
 window.fileCtxAction       = fileCtxAction;
 window.toggleFileSelection = toggleFileSelection;
 window.fileItemClick       = fileItemClick;
+window.checkboxItemClick   = checkboxItemClick;
 window.fileDragStart       = fileDragStart;
 window.fileDragEnd         = fileDragEnd;
 window.fileDragOver        = fileDragOver;

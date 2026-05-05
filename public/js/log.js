@@ -5,6 +5,7 @@ import { get, opPost } from './api.js';
 import { escHtml, escAttr, relTime, toast, openModal, closeModal, copyToClipboard, spinner, empty } from './utils.js';
 import { defineEditor, getEditor } from './gvm/gvm-editors.js';
 import { defineContextMenu, getContextMenu } from './gvm/gvm-ctx-menus.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Render ───────────────────────────────────────────────────────────────────
 
@@ -187,7 +188,7 @@ async function showCommitFileDiff(hash, file, rowEl) {
   const resizerEl = document.getElementById('logDetailResizer');
 
   if (resizerEl.style.display === 'none') {
-    const savedH = parseInt(localStorage.getItem('gvm_panel_logDetailFiles'));
+    const savedH = Number.parseInt(localStorage.getItem('gvm_panel_logDetailFiles'));
     filesEl.style.flex = `0 0 ${!isNaN(savedH) && savedH >= 40 ? savedH + 'px' : '45%'}`;
     resizerEl.style.display = '';
   }
@@ -318,7 +319,7 @@ export function openResetModal(hash) {
 export async function confirmReset() {
   const mode = document.getElementById('resetMode').value;
   if (!_resetHash) return;
-  if (mode === 'hard' && !confirm(`¿Reset HARD a ${_resetHash.slice(0,7)}?\nSe perderán TODOS los cambios no commiteados. Esta acción no se puede deshacer.`)) return;
+  if (mode === 'hard' && !await dialog.confirm(`¿Reset HARD a ${_resetHash.slice(0,7)}?\nSe perderán TODOS los cambios no commiteados. Esta acción no se puede deshacer.`, { type: 'danger', title: 'Reset Hard', confirmText: 'Reset' })) return;
   try {
     await opPost('/repo/reset', { hash: _resetHash, mode }, `Reset ${mode} a ${_resetHash.slice(0,7)}…`);
     emit('repo:refresh');
@@ -328,7 +329,7 @@ export async function confirmReset() {
 }
 
 async function revertCommit(hash) {
-  if (!confirm(`¿Revertir commit ${hash.slice(0,7)}?\nSe creará un nuevo commit deshaciendo los cambios.`)) return;
+  if (!await dialog.confirm(`¿Revertir commit ${hash.slice(0,7)}?\nSe creará un nuevo commit deshaciendo los cambios.`, { type: 'warn', confirmText: 'Revertir' })) return;
   try {
     await opPost('/repo/commit/revert', { hash }, `Revirtiendo ${hash.slice(0,7)}…`);
     emit('repo:refresh');

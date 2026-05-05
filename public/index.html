@@ -10,21 +10,71 @@
 </head>
 <body>
 
+  <!-- ══════════════════════════ SVG ICON SPRITE ═══════════════════════════════ -->
+  <!-- Todos los símbolos definidos aquí una sola vez. Uso: <svg class="gvm-ic" width="N" height="N"><use href="#ic-NAME"/></svg> -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <defs>
+      <!-- Git -->
+      <symbol id="ic-branch" viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+      <symbol id="ic-commit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></symbol>
+      <symbol id="ic-git-pr" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></symbol>
+      <!-- Branch indicators -->
+      <symbol id="ic-dot-filled" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></symbol>
+      <symbol id="ic-dot-empty"  viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></symbol>
+      <!-- Remote -->
+      <symbol id="ic-cloud"  viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></symbol>
+      <symbol id="ic-ban"    viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></symbol>
+      <!-- Arrows -->
+      <symbol id="ic-arrow-up"   viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></symbol>
+      <symbol id="ic-arrow-down" viewBox="0 0 24 24"><path d="m19 12-7 7-7-7"/><path d="M12 5v14"/></symbol>
+      <symbol id="ic-download"   viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+      <symbol id="ic-upload"     viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+      <!-- Panel controls -->
+      <symbol id="ic-chevron-down"  viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="ic-chevrons-down" viewBox="0 0 24 24"><path d="m7 6 5 5 5-5"/><path d="m7 13 5 5 5-5"/></symbol>
+      <symbol id="ic-chevrons-up"   viewBox="0 0 24 24"><path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/></symbol>
+      <symbol id="ic-maximize" viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></symbol>
+      <symbol id="ic-minimize" viewBox="0 0 24 24"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="21" y2="3"/><line x1="3" y1="21" x2="14" y2="10"/></symbol>
+      <symbol id="ic-x"        viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+      <!-- File actions -->
+      <symbol id="ic-trash"      viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></symbol>
+      <symbol id="ic-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+      <!-- View mode -->
+      <symbol id="ic-list-view" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+      <symbol id="ic-tree-view" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></symbol>
+      <!-- Sync -->
+      <symbol id="ic-refresh-cw"  viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+      <symbol id="ic-refresh-ccw" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></symbol>
+      <!-- Resources -->
+      <symbol id="ic-archive"         viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="5" rx="2"/><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></symbol>
+      <symbol id="ic-archive-restore" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="5" rx="2"/><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><path d="m8 13 4-4 4 4"/><path d="M12 17v-8"/></symbol>
+      <symbol id="ic-tag"        viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></symbol>
+      <symbol id="ic-undo"       viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></symbol>
+      <symbol id="ic-clock"      viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+      <symbol id="ic-zap"        viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+      <symbol id="ic-file-minus" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="9" y1="12" x2="15" y2="12"/></symbol>
+      <symbol id="ic-settings"   viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <!-- Misc -->
+      <symbol id="ic-list-checks" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+      <symbol id="ic-folder"      viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+    </defs>
+  </svg>
+
   <!-- ═══════════════════════════════════ HEADER ══════════════════════════════ -->
   <header class="header">
     <div class="header-brand">
-      <span class="logo">⟁</span>
-      <span class="logo-text">Ruta</span>
+      <img src="/images/logos/dark.png" class="header-logo" alt="GitVisual" />
+      <span class="logo-text">GitVisual</span>
     </div>
     <div class="header-repo">
       <input type="text" id="repoPath" class="repo-input" placeholder="Ruta del repositorio…" />
       <span id="repoPathDisplay" class="repo-path-display" style="display:none"></span>
       <div id="headerWelcomeActions" class="header-group">
-        <button id="btnBrowse" class="btn btn-secondary btn-icon-text" title="Seleccionar carpeta">📁</button>
+        <button id="btnBrowse" class="btn btn-secondary btn-icon-text" title="Seleccionar carpeta"><svg class="gvm-ic" width="14" height="14"><use href="#ic-folder"/></svg></button>
         <button id="btnLoadRepo" class="btn btn-primary">Abrir</button>
       </div>
       <div id="headerGitActions" class="header-group" style="display:none">
-        <button id="btnOpenFolder"   class="btn btn-secondary btn-xs" title="Abrir carpeta en el explorador">📁 Explorador</button>
+        <button id="btnOpenFolder"   class="btn btn-secondary btn-xs" title="Abrir carpeta en el explorador"><svg class="gvm-ic" width="13" height="13"><use href="#ic-folder"/></svg> Explorador</button>
         <button id="btnOpenTerminal" class="btn btn-secondary btn-xs" title="Abrir Git Bash en esta carpeta">⌨ Terminal</button>
       </div>
     </div>
@@ -40,79 +90,79 @@
   <div id="toolbar" class="toolbar" style="display:none">
     <div class="tb-group">
       <button class="tb-btn" id="tbCommit">
-        <span class="tb-icon">⑂</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-commit"/></svg></span>
         <span class="tb-label">Commit</span>
         <span id="tbCommitBadge" class="tb-badge" style="display:none">0</span>
       </button>
       <button class="tb-btn" id="tbPull">
-        <span class="tb-icon">↓</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-download"/></svg></span>
         <span class="tb-label">Pull</span>
       </button>
       <button class="tb-btn tb-push" id="tbPush">
-        <span class="tb-icon">↑</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-upload"/></svg></span>
         <span class="tb-label">Push</span>
       </button>
       <button class="tb-btn" id="tbFetch">
-        <span class="tb-icon">⟳</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-refresh-cw"/></svg></span>
         <span class="tb-label">Fetch</span>
       </button>
       <button class="tb-btn" id="tbSync" title="Fetch + Pull en un clic">
-        <span class="tb-icon">⇄↓</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-refresh-ccw"/></svg></span>
         <span class="tb-label">Sync</span>
       </button>
     </div>
     <div class="tb-sep"></div>
     <div class="tb-group">
       <button class="tb-btn" id="tbBranch">
-        <span class="tb-icon">⎇</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-branch"/></svg></span>
         <span class="tb-label">Rama</span>
       </button>
       <button class="tb-btn" id="tbStash">
-        <span class="tb-icon">◫</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-archive"/></svg></span>
         <span class="tb-label">Stash</span>
       </button>
       <button class="tb-btn" id="tbTag">
-        <span class="tb-icon">◈</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-tag"/></svg></span>
         <span class="tb-label">Tag</span>
       </button>
       <button class="tb-btn tb-danger" id="tbDiscard">
-        <span class="tb-icon">↺</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-undo"/></svg></span>
         <span class="tb-label">Descartar</span>
       </button>
     </div>
     <div class="tb-sep"></div>
     <div class="tb-group">
       <button class="tb-btn" id="tbRecover" title="Recuperar stashes o ramas eliminadas">
-        <span class="tb-icon">⟳</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-archive-restore"/></svg></span>
         <span class="tb-label">Recuperar</span>
       </button>
       <button class="tb-btn" id="tbReflog" onclick="openReflogModal()" title="Ver reflog del repositorio">
-        <span class="tb-icon">📋</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-clock"/></svg></span>
         <span class="tb-label">Reflog</span>
       </button>
     </div>
     <div class="tb-sep"></div>
     <div class="tb-group">
       <button class="tb-btn tb-prod" id="tbProd">
-        <span class="tb-icon">🚀</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-zap"/></svg></span>
         <span class="tb-label">Producción</span>
       </button>
       <button class="tb-btn tb-pr" id="tbPR">
-        <span class="tb-icon">⤢</span>
+        <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-git-pr"/></svg></span>
         <span class="tb-label">PR</span>
       </button>
     </div>
     <div class="tb-spacer"></div>
     <button id="btnGitignore" class="tb-btn tb-right" title="Editar .gitignore">
-      <span class="tb-icon">🚫</span>
+      <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-file-minus"/></svg></span>
       <span class="tb-label">.gitignore</span>
     </button>
     <button id="btnRefresh" class="tb-btn tb-right" title="Actualizar (F5)">
-      <span class="tb-icon">↻</span>
+      <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-refresh-cw"/></svg></span>
       <span class="tb-label">Actualizar</span>
     </button>
     <button id="btnSettings" class="tb-btn tb-right" title="Configuración">
-      <span class="tb-icon">⚙</span>
+      <span class="tb-icon"><svg class="gvm-ic" width="18" height="18"><use href="#ic-settings"/></svg></span>
       <span class="tb-label">Ajustes</span>
     </button>
   </div>
@@ -120,12 +170,12 @@
   <!-- ════════════════════════════ WELCOME SCREEN ══════════════════════════════ -->
   <div id="welcome" class="welcome">
     <div class="welcome-card">
-      <div class="welcome-logo">⟁</div>
-      <h1>Git <span>Visual</span> Manager</h1>
-      <p>Gestiona tus repositorios Git de forma visual desde el navegador</p>
+      <img src="/images/logos/dark.png" class="welcome-logo" alt="GitVisual" />
+      <h1>Git<span>Visual</span></h1>
+      <p class="welcome-sub">Gestor visual de GIT</p>
       <div class="welcome-input-row">
         <input type="text" id="welcomePath" class="repo-input" placeholder="C:/ruta/de/tu/proyecto" />
-        <button id="btnWelcomeBrowse" class="btn btn-secondary btn-icon-text" title="Seleccionar carpeta">📁</button>
+        <button id="btnWelcomeBrowse" class="btn btn-secondary btn-icon-text" title="Seleccionar carpeta"><svg class="gvm-ic" width="14" height="14"><use href="#ic-folder"/></svg></button>
         <button id="btnWelcomeOpen" class="btn btn-primary btn-lg">Abrir Repositorio</button>
         <button id="btnWelcomeClone" class="btn btn-secondary btn-lg">Clonar URL</button>
       </div>
@@ -142,13 +192,13 @@
       <!-- Sidebar Nav -->
       <nav class="side-nav">
         <button class="side-nav-btn active" data-panel="changes">
-          <span>≡</span> File Status
+          <span><svg class="gvm-ic" width="14" height="14"><use href="#ic-list-checks"/></svg></span> File Status
         </button>
         <button class="side-nav-btn" data-panel="log">
-          <span>◷</span> Historial
+          <span><svg class="gvm-ic" width="14" height="14"><use href="#ic-clock"/></svg></span> Historial
         </button>
         <button class="side-nav-btn" data-panel="prs">
-          <span>⤢</span> Pull Requests
+          <span><svg class="gvm-ic" width="14" height="14"><use href="#ic-git-pr"/></svg></span> Pull Requests
         </button>
       </nav>
 
@@ -156,7 +206,7 @@
       <div class="side-section" id="sectionRepo">
         <div class="side-header">
           REPOSITORIO
-          <button class="section-toggle" onclick="toggleSection('sectionRepo')" title="Colapsar/Expandir">⌄</button>
+          <button class="section-toggle" onclick="toggleSection('sectionRepo')" title="Colapsar/Expandir"><svg class="gvm-ic sw-bold" width="13" height="13"><use href="#ic-chevron-down"/></svg></button>
         </div>
         <div id="repoInfo" class="repo-info-box"></div>
       </div>
@@ -170,11 +220,12 @@
         <div class="side-header">
           RAMAS
           <div class="header-actions">
-            <button id="btnRefreshBranches" class="btn btn-xs btn-icon" title="Refrescar Ramas">↻</button>
-            <button id="btnCompareBranches" class="btn btn-xs btn-secondary" title="Comparar dos ramas">⎇ Diff</button>
-            <button class="btn btn-xs btn-secondary" onclick="openMergedBranchesModal()" title="Limpiar ramas mergeadas">🗑 Mergeadas</button>
+            <button id="btnRefreshBranches" class="btn btn-xs btn-icon" title="Refrescar Ramas"><svg class="gvm-ic" width="13" height="13"><use href="#ic-refresh-cw"/></svg></button>
+            <button id="btnCompareBranches" class="btn btn-xs btn-secondary" title="Comparar dos ramas"><svg class="gvm-ic" width="13" height="13"><use href="#ic-branch"/></svg> Diff</button>
+            <button class="btn btn-xs btn-secondary" onclick="openMergedBranchesModal()" title="Limpiar ramas mergeadas"><svg class="gvm-ic" width="13" height="13"><use href="#ic-trash"/></svg> Mergeadas</button>
+            <button id="btnFilterUnpublished" class="btn btn-xs btn-secondary" onclick="toggleUnpublishedFilter()" title="Mostrar solo ramas locales sin remote"><svg class="gvm-ic" width="13" height="13"><use href="#ic-ban"/></svg> Sin remote</button>
             <button id="btnNewBranch" class="btn btn-xs btn-primary">+ Nueva</button>
-            <button class="section-toggle" onclick="toggleSection('sectionBranches')" title="Colapsar/Expandir">⌄</button>
+            <button class="section-toggle" onclick="toggleSection('sectionBranches')" title="Colapsar/Expandir"><svg class="gvm-ic sw-bold" width="13" height="13"><use href="#ic-chevron-down"/></svg></button>
           </div>
         </div>
         <div class="branch-filter-wrap">
@@ -193,7 +244,7 @@
           ETIQUETAS (TAGS)
           <div class="header-actions">
             <button id="btnNewTagSide" class="btn btn-xs btn-primary">+ Nueva</button>
-            <button class="section-toggle" onclick="toggleSection('sectionTags')" title="Colapsar/Expandir">⌄</button>
+            <button class="section-toggle" onclick="toggleSection('sectionTags')" title="Colapsar/Expandir"><svg class="gvm-ic sw-bold" width="13" height="13"><use href="#ic-chevron-down"/></svg></button>
           </div>
         </div>
         <div id="tagList" class="tag-list"
@@ -212,7 +263,7 @@
           STASH
           <div class="header-actions">
             <button id="btnStashSave" class="btn btn-xs btn-stash" title="Guardar cambios en stash">+ Guardar</button>
-            <button class="section-toggle" onclick="toggleSection('sectionStash')" title="Colapsar/Expandir">⌄</button>
+            <button class="section-toggle" onclick="toggleSection('sectionStash')" title="Colapsar/Expandir"><svg class="gvm-ic sw-bold" width="13" height="13"><use href="#ic-chevron-down"/></svg></button>
           </div>
         </div>
         <div id="stashList" class="stash-list"
@@ -259,21 +310,22 @@
               <div class="panel-hdr">
                 <span class="panel-hdr-title">Staged <span id="stagedCount" class="badge">0</span></span>
                 <div class="panel-hdr-actions">
-                  <button id="btnStagedExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('staged')"   title="Expandir todo">⊕</button>
-                  <button id="btnStagedCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('staged')" title="Colapsar todo">⊖</button>
-                  <button id="btnStagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('staged')" title="Vista árbol">⊞</button>
+                  <button id="btnStagedExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('staged')"   title="Expandir todo"><svg class="gvm-ic" width="14" height="14"><use href="#ic-chevrons-down"/></svg></button>
+                  <button id="btnStagedCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('staged')" title="Colapsar todo"><svg class="gvm-ic" width="14" height="14"><use href="#ic-chevrons-up"/></svg></button>
+                  <button id="btnStagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('staged')" title="Vista árbol"><svg class="gvm-ic" width="14" height="14"><use href="#ic-tree-view"/></svg></button>
                   <button id="btnUnstageAll" class="btn btn-xs">Quitar todo</button>
-                  <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="stagedSection" title="Colapsar">⌄</button>
-                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="stagedSection" title="Maximizar">⤢</button>
+                  <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="stagedSection" title="Colapsar"><svg class="gvm-ic sw-bold" width="14" height="14"><use href="#ic-chevron-down"/></svg></button>
+                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="stagedSection" title="Maximizar"><svg class="gvm-ic" width="14" height="14"><use href="#ic-maximize"/></svg></button>
                 </div>
               </div>
               <div id="stagedSelBar" class="sel-bar" style="display:none">
                 <span id="stagedSelCount" class="sel-count"></span>
                 <button class="btn btn-xs" onclick="unstageSelected()">− Quitar</button>
-                <button class="btn btn-xs btn-warn" onclick="untrackSelected()" title="Quitar del tracking (git rm --cached)">🚫 Untrack</button>
-                <button class="btn btn-xs btn-icon" onclick="clearFileSelection('staged')" title="Limpiar selección">✕</button>
+                <button class="btn btn-xs btn-warn" onclick="untrackSelected()" title="Quitar del tracking (git rm --cached)"><svg class="gvm-ic" width="13" height="13"><use href="#ic-ban"/></svg> Untrack</button>
+                <button class="btn btn-xs btn-icon" onclick="clearFileSelection('staged')" title="Limpiar selección"><svg class="gvm-ic sw-bold" width="14" height="14"><use href="#ic-x"/></svg></button>
               </div>
               <div id="stagedFiles" class="file-list"
+                onclick="if(!event.target.closest('.file-item,.tree-folder'))clearFileSelection('staged')"
                 ondragover="fileDragOver(event,'staged')"
                 ondragleave="fileDragLeave(event)"
                 ondrop="fileDrop(event,'staged')"></div>
@@ -285,22 +337,23 @@
               <div class="panel-hdr">
                 <span class="panel-hdr-title">Pendientes <span id="unstagedCount" class="badge badge-warn">0</span></span>
                 <div class="panel-hdr-actions">
-                  <button id="btnUnstagedExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('unstaged')"   title="Expandir todo">⊕</button>
-                  <button id="btnUnstagedCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('unstaged')" title="Colapsar todo">⊖</button>
-                  <button id="btnUnstagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('unstaged')" title="Vista árbol">⊞</button>
+                  <button id="btnUnstagedExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('unstaged')"   title="Expandir todo"><svg class="gvm-ic" width="14" height="14"><use href="#ic-chevrons-down"/></svg></button>
+                  <button id="btnUnstagedCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('unstaged')" title="Colapsar todo"><svg class="gvm-ic" width="14" height="14"><use href="#ic-chevrons-up"/></svg></button>
+                  <button id="btnUnstagedView" class="btn btn-xs btn-icon" onclick="toggleFileView('unstaged')" title="Vista árbol"><svg class="gvm-ic" width="14" height="14"><use href="#ic-tree-view"/></svg></button>
                   <button id="btnDiscardAll" class="btn btn-xs btn-secondary">Descartar todo</button>
                   <button id="btnStageAll" class="btn btn-xs btn-primary">Stage todo</button>
-                  <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="unstagedSection" title="Colapsar">⌄</button>
-                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="unstagedSection" title="Maximizar">⤢</button>
+                  <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="unstagedSection" title="Colapsar"><svg class="gvm-ic sw-bold" width="14" height="14"><use href="#ic-chevron-down"/></svg></button>
+                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="unstagedSection" title="Maximizar"><svg class="gvm-ic" width="14" height="14"><use href="#ic-maximize"/></svg></button>
                 </div>
               </div>
               <div id="unstagedSelBar" class="sel-bar" style="display:none">
                 <span id="unstagedSelCount" class="sel-count"></span>
                 <button class="btn btn-xs btn-primary" onclick="stageSelected()">+ Stage</button>
-                <button class="btn btn-xs btn-secondary" onclick="discardSelected()">⟲ Descartar</button>
-                <button class="btn btn-xs btn-icon" onclick="clearFileSelection('unstaged')" title="Limpiar selección">✕</button>
+                <button class="btn btn-xs btn-secondary" onclick="discardSelected()"><svg class="gvm-ic" width="13" height="13"><use href="#ic-rotate-ccw"/></svg> Descartar</button>
+                <button class="btn btn-xs btn-icon" onclick="clearFileSelection('unstaged')" title="Limpiar selección"><svg class="gvm-ic sw-bold" width="14" height="14"><use href="#ic-x"/></svg></button>
               </div>
               <div id="unstagedFiles" class="file-list"
+                onclick="if(!event.target.closest('.file-item,.tree-folder'))clearFileSelection('unstaged')"
                 ondragover="fileDragOver(event,'unstaged')"
                 ondragleave="fileDragLeave(event)"
                 ondrop="fileDrop(event,'unstaged')"></div>
@@ -311,10 +364,10 @@
               <div class="panel-hdr">
                 <span class="panel-hdr-title">Sin cambios <span id="cleanCount" class="badge badge-empty">0</span></span>
                 <div class="panel-hdr-actions">
-                  <button id="btnCleanExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('clean')"   title="Expandir todo">⊕</button>
-                  <button id="btnCleanCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('clean')" title="Colapsar todo">⊖</button>
-                  <button id="btnCleanView" class="btn btn-xs btn-icon" onclick="toggleFileView('clean')" title="Vista árbol">⊞</button>
-                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="cleanSection" title="Maximizar">⤢</button>
+                  <button id="btnCleanExpand"   class="btn btn-xs btn-icon" style="display:none" onclick="expandAllTree('clean')"   title="Expandir todo"><svg class="gvm-ic" width="14" height="14"><use href="#ic-chevrons-down"/></svg></button>
+                  <button id="btnCleanCollapse" class="btn btn-xs btn-icon" style="display:none" onclick="collapseAllTree('clean')" title="Colapsar todo"><svg class="gvm-ic" width="14" height="14"><use href="#ic-chevrons-up"/></svg></button>
+                  <button id="btnCleanView" class="btn btn-xs btn-icon" onclick="toggleFileView('clean')" title="Vista árbol"><svg class="gvm-ic" width="14" height="14"><use href="#ic-tree-view"/></svg></button>
+                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="cleanSection" title="Maximizar"><svg class="gvm-ic" width="14" height="14"><use href="#ic-maximize"/></svg></button>
                 </div>
               </div>
               <div id="cleanFiles" class="file-list"></div>
@@ -331,7 +384,7 @@
               <textarea id="commitMessage" class="commit-input" placeholder="Mensaje del commit…" rows="3"></textarea>
               <div class="commit-action-row">
                 <div class="commit-templates-bar">
-                  <button class="btn btn-secondary btn-xs" onclick="toggleTemplateDropdown(event)">📋 Plantilla ▾</button>
+                  <button class="btn btn-secondary btn-xs" onclick="toggleTemplateDropdown(event)"><svg class="gvm-ic" width="13" height="13"><use href="#ic-list-view"/></svg> Plantilla ▾</button>
                   <div id="templateDropdown" class="template-dropdown" style="display:none"></div>
                 </div>
                 <div class="commit-checks">
@@ -350,11 +403,11 @@
                 <span class="panel-hdr-title">Diff</span>
                 <div class="panel-hdr-actions">
                   <span class="hunk-nav-btns">
-                    <button class="btn btn-xs btn-icon" onclick="navigateHunk('prev')" title="Hunk anterior (Alt+↑)">↑</button>
-                    <button class="btn btn-xs btn-icon" onclick="navigateHunk('next')" title="Hunk siguiente (Alt+↓)">↓</button>
+                    <button class="btn btn-xs btn-icon" onclick="navigateHunk('prev')" title="Hunk anterior (Alt+↑)"><svg class="gvm-ic sw-bold" width="13" height="13"><use href="#ic-arrow-up"/></svg></button>
+                    <button class="btn btn-xs btn-icon" onclick="navigateHunk('next')" title="Hunk siguiente (Alt+↓)"><svg class="gvm-ic sw-bold" width="13" height="13"><use href="#ic-arrow-down"/></svg></button>
                   </span>
-                  <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="diffPanel" title="Colapsar">⌄</button>
-                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="diffPanel" title="Maximizar diff">⤢</button>
+                  <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="diffPanel" title="Colapsar"><svg class="gvm-ic sw-bold" width="14" height="14"><use href="#ic-chevron-down"/></svg></button>
+                  <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="diffPanel" title="Maximizar diff"><svg class="gvm-ic" width="14" height="14"><use href="#ic-maximize"/></svg></button>
                 </div>
               </div>
               <div id="diffView" class="diff-view">
@@ -400,8 +453,8 @@
             <div class="panel-hdr">
               <span class="panel-hdr-title">Commits</span>
               <div class="panel-hdr-actions">
-                <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="logLeft" title="Colapsar">⌄</button>
-                <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="logLeft" title="Maximizar">⤢</button>
+                <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="logLeft" title="Colapsar"><svg class="gvm-ic sw-bold" width="14" height="14"><use href="#ic-chevron-down"/></svg></button>
+                <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="logLeft" title="Maximizar"><svg class="gvm-ic" width="14" height="14"><use href="#ic-maximize"/></svg></button>
               </div>
             </div>
             <div class="log-container">
@@ -422,8 +475,8 @@
             <div class="panel-hdr">
               <span class="panel-hdr-title">Detalle</span>
               <div class="panel-hdr-actions">
-                <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="logDetail" title="Colapsar">⌄</button>
-                <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="logDetail" title="Maximizar">⤢</button>
+                <button class="btn btn-xs btn-icon panel-collapse-btn" data-action="collapse" data-target="logDetail" title="Colapsar"><svg class="gvm-ic sw-bold" width="14" height="14"><use href="#ic-chevron-down"/></svg></button>
+                <button class="btn btn-xs btn-icon btn-maximize" data-action="maximize" data-target="logDetail" title="Maximizar"><svg class="gvm-ic" width="14" height="14"><use href="#ic-maximize"/></svg></button>
               </div>
             </div>
             <div class="log-detail-empty" id="logDetailEmpty">Selecciona un commit</div>
@@ -446,7 +499,7 @@
         <div class="panel-hdr">
           <span class="panel-hdr-title" id="prRepoLabel"></span>
           <div class="panel-hdr-actions">
-            <button id="btnRefreshPRs" class="btn btn-xs btn-secondary">↻ Actualizar</button>
+            <button id="btnRefreshPRs" class="btn btn-xs btn-secondary"><svg class="gvm-ic" width="13" height="13"><use href="#ic-refresh-cw"/></svg> Actualizar</button>
           </div>
         </div>
         <div id="prsList" class="prs-list"></div>
@@ -739,7 +792,7 @@
               <button type="button" class="btn btn-xs" onclick="applyPRTemplate('fix')" title="Plantilla: corrección de bug">fix</button>
               <button type="button" class="btn btn-xs" onclick="applyPRTemplate('refactor')" title="Plantilla: refactorización">refactor</button>
               <button type="button" class="btn btn-xs" onclick="applyPRTemplate('general')" title="Plantilla general">…</button>
-              <button type="button" class="btn btn-xs" onclick="appendPRCommits()" title="Agregar lista de commits al final de la descripción">📋 commits</button>
+              <button type="button" class="btn btn-xs" onclick="appendPRCommits()" title="Agregar lista de commits al final de la descripción"><svg class="gvm-ic" width="13" height="13"><use href="#ic-commit"/></svg> commits</button>
             </span>
           </label>
           <textarea id="prBody" rows="5" placeholder="Describe los cambios incluidos…"></textarea>
@@ -786,7 +839,7 @@
       </div>
       <div class="modal-ftr">
         <button class="btn btn-secondary" data-close="modalSquash">Cancelar</button>
-        <button class="btn btn-danger" data-action="confirmSquash">⊕ Hacer squash</button>
+        <button class="btn btn-danger" data-action="confirmSquash"><svg class="gvm-ic" width="14" height="14"><use href="#ic-commit"/></svg> Hacer squash</button>
       </div>
     </div>
   </div>
@@ -796,7 +849,7 @@
   <div id="modalPullFrom" class="modal-bg">
     <div class="modal modal-sm">
       <div class="modal-hdr">
-        <h2>↓ Pull en "<span id="pullFromLocalBranch"></span>"</h2>
+        <h2><svg class="gvm-ic" width="15" height="15"><use href="#ic-download"/></svg> Pull en "<span id="pullFromLocalBranch"></span>"</h2>
         <button class="btn btn-icon close-btn" data-close="modalPullFrom">✕</button>
       </div>
       <div class="modal-body">
@@ -815,7 +868,7 @@
       </div>
       <div class="modal-ftr">
         <button class="btn btn-secondary" data-close="modalPullFrom">Cancelar</button>
-        <button id="btnConfirmPullFrom" class="btn btn-primary">↓ Pull</button>
+        <button id="btnConfirmPullFrom" class="btn btn-primary"><svg class="gvm-ic" width="14" height="14"><use href="#ic-download"/></svg> Pull</button>
       </div>
     </div>
   </div>
@@ -823,7 +876,7 @@
   <div id="modalProd" class="modal-bg">
     <div class="modal modal-sm">
       <div class="modal-hdr">
-        <h2>🚀 Push a Producción</h2>
+        <h2><svg class="gvm-ic" width="15" height="15"><use href="#ic-zap"/></svg> Push a Producción</h2>
         <button class="btn btn-icon close-btn" data-close="modalProd">✕</button>
       </div>
       <div class="modal-body">
@@ -845,7 +898,7 @@
       </div>
       <div class="modal-ftr">
         <button class="btn btn-secondary" data-close="modalProd">Cancelar</button>
-        <button id="btnConfirmProd" class="btn btn-danger">🚀 Confirmar Push</button>
+        <button id="btnConfirmProd" class="btn btn-danger"><svg class="gvm-ic" width="14" height="14"><use href="#ic-zap"/></svg> Confirmar Push</button>
       </div>
     </div>
   </div>
@@ -911,7 +964,7 @@
   <div id="modalReset" class="modal-bg">
     <div class="modal modal-sm">
       <div class="modal-hdr">
-        <h2>↺ Reset al commit <code id="resetTargetHash"></code></h2>
+        <h2><svg class="gvm-ic" width="15" height="15"><use href="#ic-rotate-ccw"/></svg> Reset al commit <code id="resetTargetHash"></code></h2>
         <button class="btn btn-icon close-btn" data-close="modalReset">✕</button>
       </div>
       <div class="modal-body">
@@ -931,7 +984,7 @@
       </div>
       <div class="modal-ftr">
         <button class="btn btn-secondary" data-close="modalReset">Cancelar</button>
-        <button class="btn btn-danger" onclick="confirmReset()">↺ Confirmar Reset</button>
+        <button class="btn btn-danger" onclick="confirmReset()"><svg class="gvm-ic" width="14" height="14"><use href="#ic-rotate-ccw"/></svg> Confirmar Reset</button>
       </div>
     </div>
   </div>
@@ -940,7 +993,7 @@
   <div id="modalBrowser" class="modal-bg">
     <div class="modal modal-browser">
       <div class="modal-hdr">
-        <h2>📁 Seleccionar Carpeta</h2>
+        <h2><svg class="gvm-ic" width="15" height="15"><use href="#ic-folder"/></svg> Seleccionar Carpeta</h2>
         <button class="btn btn-icon close-btn" data-close="modalBrowser">✕</button>
       </div>
 
@@ -949,7 +1002,7 @@
 
       <!-- Path bar -->
       <div class="browser-pathbar">
-        <button id="browserUp" class="btn btn-icon" title="Carpeta superior">↑</button>
+        <button id="browserUp" class="btn btn-icon" title="Carpeta superior"><svg class="gvm-ic sw-bold" width="14" height="14"><use href="#ic-arrow-up"/></svg></button>
         <div id="browserBreadcrumb" class="browser-breadcrumb"></div>
       </div>
 
@@ -978,9 +1031,9 @@
   <div id="diffSearchBar" class="diff-search-bar" style="display:none">
     <input id="diffSearchInput" class="diff-search-input" type="text" placeholder="Buscar en diff…" autocomplete="off" />
     <span id="diffSearchCount" class="diff-search-count"></span>
-    <button class="btn btn-xs btn-icon" id="diffSearchPrev" title="Anterior (Shift+Enter)">↑</button>
-    <button class="btn btn-xs btn-icon" id="diffSearchNext" title="Siguiente (Enter)">↓</button>
-    <button class="btn btn-xs btn-icon" id="diffSearchClose" title="Cerrar (Esc)">✕</button>
+    <button class="btn btn-xs btn-icon" id="diffSearchPrev" title="Anterior (Shift+Enter)"><svg class="gvm-ic sw-bold" width="13" height="13"><use href="#ic-arrow-up"/></svg></button>
+    <button class="btn btn-xs btn-icon" id="diffSearchNext" title="Siguiente (Enter)"><svg class="gvm-ic sw-bold" width="13" height="13"><use href="#ic-arrow-down"/></svg></button>
+    <button class="btn btn-xs btn-icon" id="diffSearchClose" title="Cerrar (Esc)"><svg class="gvm-ic sw-bold" width="13" height="13"><use href="#ic-x"/></svg></button>
   </div>
 
   <!-- Toast container -->
@@ -1011,7 +1064,7 @@
           <label>Carpeta destino local</label>
           <div class="input-group">
             <input type="text" id="clonePath" placeholder="C:/Proyectos/mi-nuevo-repo" />
-            <button id="btnCloneBrowse" class="btn btn-secondary">📁</button>
+            <button id="btnCloneBrowse" class="btn btn-secondary"><svg class="gvm-ic" width="14" height="14"><use href="#ic-folder"/></svg></button>
           </div>
         </div>
       </div>
@@ -1133,7 +1186,7 @@
           <!-- Ramas eliminadas -->
           <div class="recover-section">
             <div class="recover-section-hdr">
-              <span class="recover-section-icon">⎇</span>
+              <span class="recover-section-icon"><svg class="gvm-ic" width="14" height="14"><use href="#ic-branch"/></svg></span>
               <span>Ramas eliminadas (reflog)</span>
               <span id="recoverBranchCount" class="badge badge-empty">0</span>
             </div>
@@ -1143,7 +1196,7 @@
         </div>
       </div>
       <div class="modal-ftr">
-        <button id="btnRescan" class="btn btn-secondary">↻ Buscar de nuevo</button>
+        <button id="btnRescan" class="btn btn-secondary"><svg class="gvm-ic" width="14" height="14"><use href="#ic-refresh-cw"/></svg> Buscar de nuevo</button>
         <button class="btn btn-secondary" data-close="modalRecover">Cerrar</button>
       </div>
     </div>
@@ -1186,7 +1239,7 @@
   <div id="modalRebase" class="modal-bg">
     <div class="modal modal-sm">
       <div class="modal-hdr">
-        <h2>⎇ Rebase</h2>
+        <h2><svg class="gvm-ic" width="15" height="15"><use href="#ic-branch"/></svg> Rebase</h2>
         <button class="btn btn-icon close-btn" data-close="modalRebase">✕</button>
       </div>
       <div class="modal-body">
@@ -1211,7 +1264,7 @@
   <div id="modalCompare" class="modal-bg">
     <div class="modal modal-wide">
       <div class="modal-hdr">
-        <h2>⎇ Comparar ramas</h2>
+        <h2><svg class="gvm-ic" width="15" height="15"><use href="#ic-branch"/></svg> Comparar ramas</h2>
         <button class="btn btn-icon close-btn" data-close="modalCompare">✕</button>
       </div>
       <div class="modal-body modal-body-flex compare-modal-body">
@@ -1258,7 +1311,7 @@
   <div id="modalMergedBranches" class="modal-bg">
     <div class="modal modal-sm">
       <div class="modal-hdr">
-        <h2>🗑 Ramas mergeadas en <code id="mergedBranchesBase" style="font-size:11px;color:var(--green)"></code></h2>
+        <h2><svg class="gvm-ic" width="15" height="15"><use href="#ic-trash"/></svg> Ramas mergeadas en <code id="mergedBranchesBase" style="font-size:11px;color:var(--green)"></code></h2>
         <button class="btn btn-icon" data-close="modalMergedBranches">✕</button>
       </div>
       <div class="modal-body" id="mergedBranchesList"></div>
@@ -1356,6 +1409,9 @@
       </div>
     </div>
   </div>
+
+  <!-- GvmDialog overlay — contenido inyectado dinámicamente por GvmDialog -->
+  <div id="gvmDialogOverlay" class="modal-bg"></div>
 
   <script type="module" src="js/init.js"></script>
 </body>
