@@ -305,6 +305,21 @@ export class GvmList extends GvmComponent {
     this._render();
   }
 
+  /** Append items without resetting selection or scroll position. */
+  appendItems(newItems) {
+    if (!newItems?.length) return;
+    const prevLen = this._items.length;
+    this._items = this._items.concat(newItems);
+    if (this._virtual) {
+      this._el.style.height = (this._items.length * this._itemH) + 'px';
+      this._renderVirtual();
+    } else {
+      this._el.insertAdjacentHTML('beforeend',
+        newItems.map((item, i) => this._wrapItem(item, prevLen + i)).join('')
+      );
+    }
+  }
+
   /** Programmatically select an item. Pass trigger=true to also fire onActivate. */
   selectIndex(idx, trigger = false) {
     if (idx < 0 || idx >= this._items.length) return;

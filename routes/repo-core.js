@@ -182,13 +182,15 @@ router.get('/files/all', async (req, res) => {
 
 router.get('/log', async (req, res) => {
   const { repoPath, search, branch } = req.query;
-  const cfg = loadRepoConfig(repoPath);
-  const limit = req.query.limit || cfg.logLimit || 100;
+  const cfg    = loadRepoConfig(repoPath);
+  const limit  = Number.parseInt(req.query.limit  || cfg.logLimit || 100);
+  const offset = Number.parseInt(req.query.offset || 0);
   try {
     const g   = git(repoPath);
     const SEP = '|||';
     const fmt = `%H${SEP}%P${SEP}%an${SEP}%aI${SEP}%D${SEP}%s`;
-    const args = ['log', `--format=${fmt}`, `--max-count=${Number.parseInt(limit)}`];
+    const args = ['log', `--format=${fmt}`, `--max-count=${limit + 1}`];
+    if (offset > 0) args.push(`--skip=${offset}`);
     if (branch) args.push(branch);
     else        args.push('--all');
     if (search) { args.push('--grep'); args.push(search); }
@@ -225,7 +227,9 @@ router.get('/log', async (req, res) => {
         message:     message     || '',
       };
     });
-    res.json({ all, ...(branchNotFound && { branchNotFound: true }) });
+    const hasMore = all.length > limit;
+    if (hasMore) all.splice(limit);
+    res.json({ all, hasMore, ...(branchNotFound && { branchNotFound: true }) });
   } catch (e) {
     logger.error('Log error', { msg: e.message });
     handleGitError(res, e);

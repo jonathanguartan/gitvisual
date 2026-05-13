@@ -50,10 +50,14 @@ router.post('/push', async (req, res) => {
     if (!skipMergeCheck && !setUpstream && !mainBranches.has(branch)) {
       const wasPushed = await g.raw(['rev-parse', '--verify', `refs/remotes/${remote}/${branch}`]).then(() => true).catch(() => false);
       if (wasPushed) {
-        const remoteRef = `refs/remotes/${remote}/${branch}`;
+        const localTip = (await g.raw(['rev-parse', branch])).trim();
         for (const target of [`${remote}/main`, `${remote}/master`]) {
           try {
-            await g.raw(['merge-base', '--is-ancestor', remoteRef, target]);
+            // merge-base --is-ancestor exits with 1 (not an error) when A is not ancestor
+            // of B, so simple-git may not throw. Instead, compare merge-base output
+            // directly: if merge-base(branch, target) == localTip then branch IS ancestor.
+            const base64 = (await g.raw(['merge-base', branch, target])).trim();
+            if (base64 !== localTip) continue;
             const base = target.replace(`${remote}/`, '');
             return res.json({ merged: true, warning: `La rama "${branch}" ya fue mergeada en "${base}". ¿Hacer push de todas formas?` });
           } catch (_) {}
@@ -78,9 +82,13 @@ router.post('/push', async (req, res) => {
       }
 
       // git push -u no funciona cuando el refspec local es un hash (no una rama),
-      // así que el tracking se asigna explícitamente después de todos los batches.
+      // y branch --set-upstream-to requiere que refs/remotes/origin/branch exista localmente
+      // (lo cual no ocurre al pushear por hash). Se escribe la config directamente.
       if (setUpstream) {
-        try { await g.raw(['branch', '--set-upstream-to', `${remote}/${branch}`, branch]); } catch (_) {}
+        try {
+          await g.raw(['config', `branch.${branch}.remote`, remote]);
+          await g.raw(['config', `branch.${branch}.merge`, `refs/heads/${branch}`]);
+        } catch (_) {}
       }
 
       return res.json({ success: true, batches: Math.ceil((commits.length || 1) / batchSize) });

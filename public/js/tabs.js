@@ -3,6 +3,7 @@ import { tabs, activeTabId, state, saveSession, newTabData, setActiveTabId } fro
 import { get, post, opPost, switchTabSignal } from './api.js';
 import { escHtml, escAttr, toast, openModal, closeModal } from './utils.js';
 import { clearLastDiff } from './diff.js';
+import { resetFilePanel } from './files.js';
 
 // ─── Repo Tab Management ──────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ export async function switchRepoTab(id) {
 
   switchTabSignal(); // abort in-flight background requests from the previous tab
   clearLastDiff();   // evita que toggleDiffMode cargue el diff del tab anterior
+  resetFilePanel();  // limpia diff view y selección del tab anterior
   setActiveTabId(id);
   renderTabBar();
   const tab = tabs.find(t => t.id === id) || null;

@@ -11,9 +11,10 @@ A visual Git repository manager that runs in the browser (or as a standalone Ele
 - **Branch tree view** — collapsible folders, filter/search input, expand/collapse all
 - **Unpublished branch indicator** — local branches without a remote counterpart show a yellow left border and a no-remote badge; branches whose remote was deleted show a "gone" tooltip
 - **Branch selection state** — clicking a branch highlights it with `.selected`; persists through re-renders and clears on repo switch
-- **Merged branch detection** — pushing a branch already merged into main/master shows a confirmation; branches never pushed are excluded
+- **Merged branch detection** — pushing a branch whose local tip is already an ancestor of main/master shows a confirmation; branches never pushed are excluded; uses `git merge-base` output comparison to avoid false positives from simple-git not throwing on exit code 1
 - **Smart fetch** — updates both branch ahead/behind badges and the status bar
-- **Commit log** — graph-style log with file-change detail and context menu (revert, reset soft/mixed/hard, create branch/tag, copy hash)
+- **Commit log** — graph-style log with infinite scroll (100 commits por página, carga automática al llegar al fondo), file-change detail y context menu (cherry-pick, revert, reset soft/mixed/hard, create branch/tag, copy hash)
+- **Cherry-pick** — detecta automáticamente los merge commits y ofrece aplicarlos con `-m 1` (padre principal) mediante un diálogo de confirmación
 - **Conflict resolution** — conflicted files highlighted with type indicator (UU/AA/DD…), inline "ours / theirs" buttons, 3-way conflict editor, automatic staging after resolution
 - **Diff view** — unified and split modes with old/new line numbers, word-level diff, and per-hunk stage/unstage buttons
 - **Stash** — list, push, pop, apply, drop; smart conflict handling on apply: classifies blocked files as identical-to-stash or truly different, offering "Discard and apply" (no extra stash created) when safe, or "Auto-stash and apply" when real differences exist
@@ -119,7 +120,13 @@ git-visual-manager/
 │   │   ├── icons.js        # SVG sprite helpers — use(name) + ic.{name}() shortcuts
 │   │   ├── validation.js   # Frontend mirror of lib/validation.js (isValidRefName, etc.)
 │   │   ├── diff.js         # Diff render, hunk staging, clearLastDiff()
-│   │   ├── files*.js       # Changes panel (render, select, ops, history, gitignore)
+│   │   ├── files.js            # Aggregator — re-exports + window assignments
+│   │   ├── files-state.js      # Shared mutable state (selection, lastClicked, viewMode…)
+│   │   ├── files-render.js     # renderStatus, renderFileItem, tree view, filters
+│   │   ├── files-select.js     # Click handler, shift-select, drag&drop, batch ops
+│   │   ├── files-ops.js        # Ctx menus, individual stage/unstage/discard/resolve
+│   │   ├── files-history.js    # File history modal + blame
+│   │   ├── files-gitignore.js  # .gitignore editor
 │   │   ├── branches*.js    # Branches panel (render, ctx-menu, ops, setSelectedBranch)
 │   │   ├── gvm/            # Reusable UI components
 │   │   │   ├── gvm-list.js         # GvmList — virtual-scroll list
@@ -146,6 +153,9 @@ git-visual-manager/
 │       ├── validation.test.js
 │       ├── git-errors.test.js
 │       └── config.test.js
+├── public/
+│   └── vendor/
+│       └── hljs/build/highlight.min.js  # highlight.js bundle (esbuild — regenerar si se actualiza)
 ├── app-config.json         # Runtime config (auto-created, never commit)
 └── package.json
 ```
@@ -181,7 +191,7 @@ All endpoints are prefixed `/api`.
 | POST | `/repo/pull` | `{ repoPath }` | Pull current branch |
 | POST | `/repo/fetch` | `{ repoPath }` | Fetch all |
 | GET | `/repo/diff` | `?path=&file=&staged=` | File diff |
-| GET | `/repo/log` | `?path=&branch?=&n?=` | Commit log |
+| GET | `/repo/log` | `?path=&branch?=&limit?=&offset?=&search?=` | Commit log paginado. Devuelve `{ all, hasMore }` |
 | POST | `/repo/open-file` | `{ repoPath, file }` | Open file in system default app |
 
 ### Branches

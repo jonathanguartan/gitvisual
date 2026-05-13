@@ -2,7 +2,7 @@ import { defineList, getList } from './gvm/gvm-lists.js';
 import { emit } from './bus.js';
 import { state } from './state.js';
 import { get, opPost } from './api.js';
-import { escHtml, escAttr, relTime, toast, openModal, closeModal, copyToClipboard, spinner, empty } from './utils.js';
+import { escHtml, escAttr, relTime, toast, openModal, closeModal, copyToClipboard, spinner, empty, throttle } from './utils.js';
 import { defineEditor, getEditor } from './gvm/gvm-editors.js';
 import { defineContextMenu, getContextMenu } from './gvm/gvm-ctx-menus.js';
 import { dialog } from './gvm/gvm-dialog.js';
@@ -51,6 +51,63 @@ function _renderLogItem(c, idx, { selected }) {
   </div>`;
 }
 
+// ─── Pagination state ─────────────────────────────────────────────────────────
+
+const LOG_PAGE_SIZE    = 100;
+let   _logOffset       = 0;
+let   _logHasMore      = false;
+let   _logLoading      = false;
+let   _logScrollBound  = false;
+
+function _updateLoadMoreIndicator() {
+  const el = document.getElementById('logLoadMore');
+  if (!el) return;
+  el.style.display = _logHasMore ? '' : 'none';
+  if (_logHasMore) el.textContent = _logLoading ? 'Cargando más commits…' : '';
+}
+
+function _setupLogScroll() {
+  if (_logScrollBound) return;
+  _logScrollBound = true;
+  const scrollEl = document.querySelector('.log-scroll-area');
+  if (!scrollEl) return;
+  scrollEl.addEventListener('scroll', throttle(() => {
+    if (!_logHasMore || _logLoading) return;
+    const { scrollTop, clientHeight, scrollHeight } = scrollEl;
+    if (scrollTop + clientHeight >= scrollHeight - 200) _loadMoreCommits();
+  }, 150), { passive: true });
+}
+
+async function _loadMoreCommits() {
+  if (_logLoading || !_logHasMore) return;
+  _logLoading = true;
+  _updateLoadMoreIndicator();
+
+  try {
+    const searchInput = document.getElementById('logSearch');
+    const search = searchInput ? searchInput.value.trim() : '';
+    const params = { limit: String(LOG_PAGE_SIZE), offset: String(_logOffset), search };
+    if (state.logBranch) params.branch = state.logBranch;
+
+    const data       = await get('/repo/log', params);
+    const newCommits = data.all || [];
+    _logHasMore = !!data.hasMore;
+    _logOffset += newCommits.length;
+
+    if (newCommits.length > 0) {
+      state.logCommits = (state.logCommits || []).concat(newCommits);
+      getList('commitLog')?.appendItems(newCommits);
+      const svg = document.getElementById('logGraph');
+      if (svg) requestAnimationFrame(() => drawGraph(state.logCommits, svg));
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') toast(e.message, 'error');
+  } finally {
+    _logLoading = false;
+    _updateLoadMoreIndicator();
+  }
+}
+
 // ─── Load ─────────────────────────────────────────────────────────────────────
 
 export async function loadLog(branch) {
@@ -70,12 +127,17 @@ export async function loadLog(branch) {
     }
   }
 
+  _logOffset  = 0;
+  _logHasMore = false;
+  _logLoading = false;
+  _updateLoadMoreIndicator();
+
   el.innerHTML = spinner();
   el.style.height = '';
   if (svg) { svg.innerHTML = ''; svg.style.height = '0px'; }
 
   try {
-    const params = { limit: '100', search };
+    const params = { limit: String(LOG_PAGE_SIZE), offset: '0', search };
     if (state.logBranch) params.branch = state.logBranch;
     const data = await get('/repo/log', params);
     if (state.logBranch && data.branchNotFound) {
@@ -91,6 +153,9 @@ export async function loadLog(branch) {
       return;
     }
 
+    _logHasMore = !!data.hasMore;
+    _logOffset  = commits.length;
+
     state.logCommits     = commits;
     state.logSelectedIdx = -1;
 
@@ -102,6 +167,9 @@ export async function loadLog(branch) {
       const first = commits[0];
       showCommitDetail(first.hash, first.message, first.author_name, first.date);
     }
+
+    _updateLoadMoreIndicator();
+    _setupLogScroll();
 
   } catch (e) {
     if (e.name === 'AbortError') return;
@@ -275,6 +343,10 @@ export function resetLogState() {
   state.logBranch      = null;
   state.logCommits     = [];
   state.logSelectedIdx = -1;
+  _logOffset  = 0;
+  _logHasMore = false;
+  _logLoading = false;
+  _updateLoadMoreIndicator();
   getList('commitLog')?.setItems([]);
   const searchInput = document.getElementById('logSearch');
   if (searchInput) searchInput.value = '';

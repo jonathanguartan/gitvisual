@@ -1,7 +1,8 @@
 node_modules/
+.claude/
+docs/
+
 app-config.json
 app-config.json.bak
 AGENTS.md
-README.md
-.claude/
-docs/
+CLAUDE.md

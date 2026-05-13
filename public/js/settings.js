@@ -396,7 +396,7 @@ export async function openCherryPickModal(commitHash) {
   openModal('modalCherryPick');
 }
 
-export async function confirmCherryPick() {
+export async function confirmCherryPick(mainline = null) {
   const commitHash = _cherryPickCommitHash;
   const newBranchName = document.getElementById('cherryPickNewBranchName').value.trim();
   const targetBranch = newBranchName || document.getElementById('cherryPickTargetBranch').value;
@@ -405,18 +405,29 @@ export async function confirmCherryPick() {
   if (!targetBranch) { toast('Selecciona una rama o introduce un nombre para una nueva rama', 'warn'); return; }
   if (newBranchName && !isValidRefName(newBranchName)) { toast('Nombre de rama inválido. Evita espacios, .., tildes, y caracteres especiales.', 'warn'); return; }
 
+  const body = { commitHash, targetBranch };
+  if (mainline !== null) body.mainline = mainline;
+
   try {
     toast(`Aplicando cherry-pick del commit ${commitHash.slice(0, 7)}…`, 'info');
-    await post('/repo/cherry-pick', { commitHash, targetBranch });
+    await post('/repo/cherry-pick', body);
     closeModal('modalCherryPick');
     emit('repo:refresh');
     toast(`Cherry-pick de ${commitHash.slice(0, 7)} aplicado con éxito ✓`, 'success');
   } catch (e) {
+    if (e.message === 'MERGE_COMMIT') {
+      const ok = await dialog.confirm(
+        `El commit ${commitHash.slice(0, 7)} es un merge commit.\n¿Aplicar cherry-pick usando el padre principal (-m 1)?`,
+        { type: 'warn', confirmText: 'Aplicar con -m 1', cancelText: 'Cancelar' }
+      );
+      if (ok) await confirmCherryPick(1);
+      return;
+    }
     toast(`Error en cherry-pick: ${e.message}`, 'error');
   }
 }
 
-document.getElementById('btnConfirmCherryPick').addEventListener('click', confirmCherryPick);
+document.getElementById('btnConfirmCherryPick').addEventListener('click', () => confirmCherryPick());
 
 // ─── Push to Production ────────────────────────────────────────────────────────
 

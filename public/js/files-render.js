@@ -123,6 +123,20 @@ export function renderFileItem(f, listType, staged, displayName = null, indentPx
   </div>`;
 }
 
+function _countNodeFiles(node, sel) {
+  let total = 0, selected = 0;
+  for (const f of node.__files) {
+    total++;
+    if (sel.has(f.path)) selected++;
+  }
+  for (const child of Object.values(node.__dirs)) {
+    const sub = _countNodeFiles(child, sel);
+    total    += sub.total;
+    selected += sub.selected;
+  }
+  return { total, selected };
+}
+
 export function renderTreeNode(node, listType, staged, depth, pathPrefix) {
   let html = '';
   const folderIndent = depth * 16 + 6;
@@ -132,11 +146,23 @@ export function renderTreeNode(node, listType, staged, depth, pathPrefix) {
     const fullPath  = pathPrefix ? `${pathPrefix}/${name}` : name;
     const collapsed = fileState.collapsedFolders[listType].has(fullPath);
     const isActive  = fileState.activeTreeItem?.kind === 'folder' && fileState.activeTreeItem.path === fullPath && fileState.activeTreeItem.listType === listType;
+
+    let cbHtml = '';
+    if (listType !== 'clean') {
+      const { total, selected } = _countNodeFiles(child, fileState.selected[listType]);
+      const allSel  = total > 0 && selected === total;
+      const partSel = selected > 0 && selected < total;
+      cbHtml = `<input type="checkbox" class="file-checkbox folder-checkbox"${allSel ? ' checked' : ''}${partSel ? ' data-indeterminate' : ''}
+        onclick="event.stopPropagation();folderCheckboxClick(event,'${escAttr(fullPath)}','${listType}')"
+        ondblclick="event.stopPropagation()"
+        title="Seleccionar archivos de esta carpeta">`;
+    }
+
     html += `<div class="tree-folder${isActive ? ' tree-active' : ''}" style="padding-left:${folderIndent}px"
                   data-path="${escAttr(fullPath)}" data-list="${listType}"
                   onclick="toggleTreeFolder('${escAttr(fullPath)}','${listType}')"
                   oncontextmenu="folderCtxShow(event,'${escAttr(fullPath)}','${listType}')">
-      <span class="tree-caret">${collapsed ? '▶' : '▼'}</span>
+      ${cbHtml}<span class="tree-caret">${collapsed ? '▶' : '▼'}</span>
       <span class="tree-dir-icon">📁</span>
       <span class="tree-dir-name">${escHtml(name)}</span>
     </div>`;
@@ -314,6 +340,12 @@ function _updateSelectionBars() {
   }
 }
 
+function _applyFolderCheckboxIndeterminate() {
+  document.querySelectorAll('.folder-checkbox[data-indeterminate]').forEach(cb => {
+    cb.indeterminate = true;
+  });
+}
+
 export function renderStatus(status) {
   const allFiles    = status.files || [];
   const conflicted  = status.conflicted || [];
@@ -348,6 +380,7 @@ export function renderStatus(status) {
 
   document.getElementById('stagedFiles').innerHTML   = renderList(stagedFiles,   'staged',   true);
   document.getElementById('unstagedFiles').innerHTML = renderList(unstagedFiles, 'unstaged', false);
+  _applyFolderCheckboxIndeterminate();
 
   const showClean = fileState.fileFilter === 'all-files';
   const cleanSection = document.getElementById('cleanSection');

@@ -281,9 +281,11 @@ router.post('/merge', async (req, res) => {
 });
 
 router.post('/cherry-pick', async (req, res) => {
-  const { repoPath, commitHash, targetBranch } = req.body;
+  const { repoPath, commitHash, targetBranch, mainline } = req.body;
   if (!commitHash || commitHash.startsWith('-')) return res.status(400).json({ error: 'Hash de commit inválido' });
   if (targetBranch && !isValidRefName(targetBranch)) return res.status(400).json({ error: 'Nombre de rama destino inválido' });
+  if (mainline !== undefined && (!Number.isInteger(mainline) || mainline < 1))
+    return res.status(400).json({ error: 'El número de padre debe ser un entero positivo' });
   try {
     const g = git(repoPath);
     const status = await g.status();
@@ -292,11 +294,16 @@ router.post('/cherry-pick', async (req, res) => {
       if (!branches.all.includes(targetBranch)) await g.checkoutLocalBranch(targetBranch);
       else                                       await g.checkout(targetBranch);
     }
-    await g.raw(['cherry-pick', commitHash]);
+    const args = ['cherry-pick'];
+    if (mainline) args.push('-m', String(mainline));
+    args.push(commitHash);
+    await g.raw(args);
     res.json({ success: true });
   } catch (e) {
     if (e.message.includes('CONFLICT'))
       return res.status(500).json({ error: 'Conflictos detectados durante el cherry-pick. Resuélvelos manualmente.' });
+    if (e.message.includes('is a merge but no -m option'))
+      return res.status(422).json({ error: 'MERGE_COMMIT' });
     handleGitError(res, e);
   }
 });

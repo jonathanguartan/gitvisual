@@ -3,7 +3,7 @@ import { get, post, api } from './api.js';
 import { toast, openModal, escHtml, escAttr } from './utils.js';
 import { on, emit } from './bus.js';
 import { renderBranches, renderRepoInfo, setSelectedBranch } from './branches.js';
-import { renderStatus, invalidateCleanCache } from './files.js';
+import { renderStatus, invalidateCleanCache, resetFilePanel } from './files.js';
 import { renderTags } from './tags.js';
 import { renderStashList } from './stash.js';
 import { startAutoFetch } from './sync.js';
@@ -49,6 +49,7 @@ export async function loadRepo(repoPath) {
 
     resetLogState();
     setSelectedBranch(null);
+    resetFilePanel();
     state.repoPath = repoPath;
     state.isLazy = false;
     document.getElementById('repoPath').value = repoPath;
