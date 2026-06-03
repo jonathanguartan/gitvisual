@@ -25,15 +25,28 @@
       box-shadow: 0 8px 32px rgba(0,0,0,.7);
     }
 
-    .logo  { font-size: 42px; line-height: 1; }
+    .logo-img { width: 72px; height: 72px; object-fit: contain; }
 
     .title {
-      color: #cdd6f4;
-      font-size: 18px;
-      font-weight: 600;
-      letter-spacing: .3px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
     }
-    .title span { color: #89b4fa; }
+    .title-main {
+      color: #cdd6f4;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+    .title-main span { color: #89b4fa; }
+    .title-sub {
+      color: #6c7086;
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
 
     .dots { display: flex; gap: 7px; }
     .dot  {
@@ -53,8 +66,11 @@
 </head>
 <body>
   <div class="card">
-    <div class="logo">⟁</div>
-    <div class="title">Git <span>Visual</span> Manager</div>
+    <img src="../public/images/logos/dark.png" class="logo-img" alt="GitVisual" />
+    <div class="title">
+      <div class="title-main">Git<span>Visual</span></div>
+      <div class="title-sub">Gestor visual de GIT</div>
+    </div>
     <div class="dots">
       <div class="dot"></div>
       <div class="dot"></div>

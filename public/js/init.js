@@ -27,6 +27,7 @@ import { loadLog, navigateLog, navigateLogFiles } from './log.js';
 import { navigateStash } from './stash.js';
 import { switchToPanel } from './panels.js';
 import { restoreSession, tabs, activeTabId } from './state.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Staging helpers (stageAll / unstageAll / discardAll) ─────────────────────
 
@@ -50,7 +51,7 @@ window.unstageAll = async () => {
 window.discardAll = async () => {
   const unstaged = (state.status?.files || []).filter(f => f.working_dir !== ' ' && f.working_dir !== '?');
   if (unstaged.length === 0) return;
-  if (!confirm(`¿Descartar TODOS los cambios no preparados? (${unstaged.length} archivos)\nEsta acción NO se puede deshacer.`)) return;
+  if (!await dialog.confirm(`¿Descartar TODOS los cambios no preparados? (${unstaged.length} archivos)\nEsta acción NO se puede deshacer.`, { type: 'danger', confirmText: 'Descartar todo' })) return;
   try {
     await opPost('/repo/discard', { files: 'all' }, 'Descartando cambios…');
     emit('repo:refresh-status');

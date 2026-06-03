@@ -2,6 +2,7 @@ import { emit } from './bus.js';
 import { state } from './state.js';
 import { escHtml, escAttr, empty } from './utils.js';
 import { fileState } from './files-state.js';
+import { ic } from './icons.js';
 
 // ─── File Icons ───────────────────────────────────────────────────────────────
 
@@ -100,24 +101,40 @@ export function renderFileItem(f, listType, staged, displayName = null, indentPx
                data-path="${escAttr(f.path)}" data-list="${listType}"
                draggable="true"${style}
                onclick="fileItemClick(event,'${escAttr(f.path)}','${listType}',${staged})"
+               ondblclick="${staged ? `unstageFile('${escAttr(f.path)}')` : `stageFile('${escAttr(f.path)}')`}"
                oncontextmenu="fileCtxShow(event,'${escAttr(f.path)}','${listType}',${isUntracked})"
                ondragstart="fileDragStart(event,'${escAttr(f.path)}','${listType}')"
                ondragend="fileDragEnd(event)"
                title="${escAttr(f.path)}">
     <input type="checkbox" class="file-checkbox"
-      ${staged ? 'checked' : ''}
-      onclick="event.stopPropagation();event.preventDefault();${staged ? `unstageFile('${escAttr(f.path)}')` : `stageFile('${escAttr(f.path)}')`}"
-      title="${staged ? 'Quitar del stage' : 'Añadir al stage'}"
+      ${isSel ? 'checked' : ''}
+      onclick="checkboxItemClick(event,'${escAttr(f.path)}','${listType}',${staged})"
+      ondblclick="event.stopPropagation()"
+      title="Seleccionar"
     >
     <span class="file-icon">${fileIcon(f.path)}</span>
     <span class="file-status ${statusCode}">${statusCode}</span>
     <span class="file-name">${escHtml(name)}</span>
     ${conflictBadge}
     ${isConflicted || staged ? '' : `<div class="file-acts">
-           <button class="file-act delete"  onclick="event.stopPropagation();removeFile('${escAttr(f.path)}')"  title="Eliminar">🗑</button>
-           ${!isUntracked ? `<button class="file-act discard" onclick="event.stopPropagation();discardFile('${escAttr(f.path)}')" title="Descartar">⟲</button>` : ''}
+           <button class="file-act delete"  onclick="event.stopPropagation();removeFile('${escAttr(f.path)}')"  title="Eliminar">${ic.trash(13)}</button>
+           ${!isUntracked ? `<button class="file-act discard" onclick="event.stopPropagation();discardFile('${escAttr(f.path)}')" title="Descartar">${ic.rotateCcw(13)}</button>` : ''}
          </div>`}
   </div>`;
+}
+
+function _countNodeFiles(node, sel) {
+  let total = 0, selected = 0;
+  for (const f of node.__files) {
+    total++;
+    if (sel.has(f.path)) selected++;
+  }
+  for (const child of Object.values(node.__dirs)) {
+    const sub = _countNodeFiles(child, sel);
+    total    += sub.total;
+    selected += sub.selected;
+  }
+  return { total, selected };
 }
 
 export function renderTreeNode(node, listType, staged, depth, pathPrefix) {
@@ -129,11 +146,23 @@ export function renderTreeNode(node, listType, staged, depth, pathPrefix) {
     const fullPath  = pathPrefix ? `${pathPrefix}/${name}` : name;
     const collapsed = fileState.collapsedFolders[listType].has(fullPath);
     const isActive  = fileState.activeTreeItem?.kind === 'folder' && fileState.activeTreeItem.path === fullPath && fileState.activeTreeItem.listType === listType;
+
+    let cbHtml = '';
+    if (listType !== 'clean') {
+      const { total, selected } = _countNodeFiles(child, fileState.selected[listType]);
+      const allSel  = total > 0 && selected === total;
+      const partSel = selected > 0 && selected < total;
+      cbHtml = `<input type="checkbox" class="file-checkbox folder-checkbox"${allSel ? ' checked' : ''}${partSel ? ' data-indeterminate' : ''}
+        onclick="event.stopPropagation();folderCheckboxClick(event,'${escAttr(fullPath)}','${listType}')"
+        ondblclick="event.stopPropagation()"
+        title="Seleccionar archivos de esta carpeta">`;
+    }
+
     html += `<div class="tree-folder${isActive ? ' tree-active' : ''}" style="padding-left:${folderIndent}px"
                   data-path="${escAttr(fullPath)}" data-list="${listType}"
                   onclick="toggleTreeFolder('${escAttr(fullPath)}','${listType}')"
                   oncontextmenu="folderCtxShow(event,'${escAttr(fullPath)}','${listType}')">
-      <span class="tree-caret">${collapsed ? '▶' : '▼'}</span>
+      ${cbHtml}<span class="tree-caret">${collapsed ? '▶' : '▼'}</span>
       <span class="tree-dir-icon">📁</span>
       <span class="tree-dir-name">${escHtml(name)}</span>
     </div>`;
@@ -155,8 +184,8 @@ function _updateViewToggleBtn(listType) {
   const btn    = document.getElementById(`btn${prefix}View`);
   if (!btn) return;
   const isTree = fileState.viewMode[listType] === 'tree';
-  btn.textContent = isTree ? '☰' : '⊞';
-  btn.title       = isTree ? 'Vista lista' : 'Vista árbol';
+  btn.innerHTML = isTree ? ic.listView() : ic.treeView();
+  btn.title     = isTree ? 'Vista lista' : 'Vista árbol';
   btn.classList.toggle('btn-active', isTree);
 
   const btnExpand   = document.getElementById(`btn${prefix}Expand`);
@@ -178,8 +207,8 @@ export function togglePanelMaximize(id) {
   if (!el) return;
   const isMax = el.classList.toggle('panel-maximized');
   el.querySelectorAll('.btn-maximize').forEach(btn => {
-    btn.textContent = isMax ? '⤡' : '⤢';
-    btn.title       = isMax ? 'Restaurar' : 'Maximizar';
+    btn.innerHTML = isMax ? ic.minimize() : ic.maximize();
+    btn.title     = isMax ? 'Restaurar' : 'Maximizar';
   });
 }
 
@@ -311,6 +340,12 @@ function _updateSelectionBars() {
   }
 }
 
+function _applyFolderCheckboxIndeterminate() {
+  document.querySelectorAll('.folder-checkbox[data-indeterminate]').forEach(cb => {
+    cb.indeterminate = true;
+  });
+}
+
 export function renderStatus(status) {
   const allFiles    = status.files || [];
   const conflicted  = status.conflicted || [];
@@ -345,6 +380,7 @@ export function renderStatus(status) {
 
   document.getElementById('stagedFiles').innerHTML   = renderList(stagedFiles,   'staged',   true);
   document.getElementById('unstagedFiles').innerHTML = renderList(unstagedFiles, 'unstaged', false);
+  _applyFolderCheckboxIndeterminate();
 
   const showClean = fileState.fileFilter === 'all-files';
   const cleanSection = document.getElementById('cleanSection');

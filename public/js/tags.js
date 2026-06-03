@@ -3,6 +3,7 @@ import { get, opPost } from './api.js';
 import { escHtml, escAttr, toast, openModal, closeModal } from './utils.js';
 import { emit } from './bus.js';
 import { isValidRefName } from './validation.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Render ───────────────────────────────────────────────────────────────────
 
@@ -66,7 +67,7 @@ export async function confirmCreateTag() {
 }
 
 export async function deleteTag(name) {
-  if (!confirm(`¿Eliminar el tag local "${name}"?`)) return;
+  if (!await dialog.confirm(`¿Eliminar el tag local "${name}"?`, { type: 'danger', confirmText: 'Eliminar' })) return;
   try {
     await opPost('/repo/tag/delete', { tagName: name }, 'Eliminando tag…');
     const data = await get('/repo/tags');
@@ -83,7 +84,7 @@ export async function pushTag(name) {
 }
 
 export async function deleteRemoteTag(name) {
-  if (!confirm(`¿Eliminar el tag "${name}" del remoto?`)) return;
+  if (!await dialog.confirm(`¿Eliminar el tag "${name}" del remoto?`, { type: 'danger', confirmText: 'Eliminar' })) return;
   try {
     await opPost('/repo/tag/delete-remote', { tagName: name }, `Eliminando tag remoto "${name}"…`);
     toast(`Tag remoto "${name}" eliminado ✓`, 'info');

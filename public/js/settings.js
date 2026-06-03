@@ -4,6 +4,7 @@ import { get, post, opPost, api } from './api.js';
 import { escHtml, escAttr, toast, openModal, closeModal } from './utils.js';
 import { startAutoFetch } from './sync.js';
 import { isValidRefName } from './validation.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
@@ -74,10 +75,10 @@ export async function saveRepoSettings() {
   if (mainBranch) payload.mainBranch = mainBranch;
 
   const diffVal = document.getElementById('repoCfgDiffContext').value;
-  if (diffVal) payload.diffContext = parseInt(diffVal, 10);
+  if (diffVal) payload.diffContext = Number.parseInt(diffVal, 10);
 
   const logVal = document.getElementById('repoCfgLogLimit').value;
-  if (logVal) payload.logLimit = parseInt(logVal, 10);
+  if (logVal) payload.logLimit = Number.parseInt(logVal, 10);
 
   try {
     await api('POST', '/config/repo/save', payload);
@@ -88,7 +89,7 @@ export async function saveRepoSettings() {
 
 export async function clearRepoSettings() {
   if (!state.repoPath) return;
-  if (!confirm('¿Eliminar la configuración específica de este repositorio y volver a los ajustes globales?')) return;
+  if (!await dialog.confirm('¿Eliminar la configuración específica de este repositorio y volver a los ajustes globales?', { type: 'warn', confirmText: 'Eliminar' })) return;
   try {
     await api('POST', '/config/repo/clear', { repoPath: state.repoPath });
     await _loadRepoTab();
@@ -213,11 +214,11 @@ export async function saveSettings() {
   let   remote   = document.getElementById('cfgRemote').value.trim();
   const isGlobal = document.getElementById('cfgGlobal').checked;
 
-  const autoFetchMinutes = parseInt(document.getElementById('cfgAutoFetch').value, 10) || 0;
+  const autoFetchMinutes = Number.parseInt(document.getElementById('cfgAutoFetch').value, 10) || 0;
   const rebaseOnPull     = document.getElementById('cfgRebaseOnPull').checked;
   const autoStash        = document.getElementById('cfgAutoStash').checked;
-  const diffContext      = parseInt(document.getElementById('cfgDiffContext').value, 10) || 3;
-  const logLimit         = parseInt(document.getElementById('cfgLogLimit').value, 10) || 100;
+  const diffContext      = Number.parseInt(document.getElementById('cfgDiffContext').value, 10) || 3;
+  const logLimit         = Number.parseInt(document.getElementById('cfgLogLimit').value, 10) || 100;
   const mainBranch       = document.getElementById('cfgMainBranch').value.trim() || 'main';
   if (!isValidRefName(mainBranch)) { toast('Nombre de rama principal inválido.', 'warn'); return; }
 
@@ -395,7 +396,7 @@ export async function openCherryPickModal(commitHash) {
   openModal('modalCherryPick');
 }
 
-export async function confirmCherryPick() {
+export async function confirmCherryPick(mainline = null) {
   const commitHash = _cherryPickCommitHash;
   const newBranchName = document.getElementById('cherryPickNewBranchName').value.trim();
   const targetBranch = newBranchName || document.getElementById('cherryPickTargetBranch').value;
@@ -404,18 +405,29 @@ export async function confirmCherryPick() {
   if (!targetBranch) { toast('Selecciona una rama o introduce un nombre para una nueva rama', 'warn'); return; }
   if (newBranchName && !isValidRefName(newBranchName)) { toast('Nombre de rama inválido. Evita espacios, .., tildes, y caracteres especiales.', 'warn'); return; }
 
+  const body = { commitHash, targetBranch };
+  if (mainline !== null) body.mainline = mainline;
+
   try {
     toast(`Aplicando cherry-pick del commit ${commitHash.slice(0, 7)}…`, 'info');
-    await post('/repo/cherry-pick', { commitHash, targetBranch });
+    await post('/repo/cherry-pick', body);
     closeModal('modalCherryPick');
     emit('repo:refresh');
     toast(`Cherry-pick de ${commitHash.slice(0, 7)} aplicado con éxito ✓`, 'success');
   } catch (e) {
+    if (e.message === 'MERGE_COMMIT') {
+      const ok = await dialog.confirm(
+        `El commit ${commitHash.slice(0, 7)} es un merge commit.\n¿Aplicar cherry-pick usando el padre principal (-m 1)?`,
+        { type: 'warn', confirmText: 'Aplicar con -m 1', cancelText: 'Cancelar' }
+      );
+      if (ok) await confirmCherryPick(1);
+      return;
+    }
     toast(`Error en cherry-pick: ${e.message}`, 'error');
   }
 }
 
-document.getElementById('btnConfirmCherryPick').addEventListener('click', confirmCherryPick);
+document.getElementById('btnConfirmCherryPick').addEventListener('click', () => confirmCherryPick());
 
 // ─── Push to Production ────────────────────────────────────────────────────────
 
@@ -517,7 +529,7 @@ export async function addRemoteFromForm() {
 }
 
 export async function deleteRemote(name) {
-  if (!confirm(`¿Eliminar el remoto "${name}"? Esto no borra las ramas locales que lo rastrean.`)) return;
+  if (!await dialog.confirm(`¿Eliminar el remoto "${name}"?\nEsto no borra las ramas locales que lo rastrean.`, { type: 'danger', confirmText: 'Eliminar' })) return;
   try {
     await post('/repo/remote/delete', { name });
     toast(`Remoto "${name}" eliminado ✓`, 'info');

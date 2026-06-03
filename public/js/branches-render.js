@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { escHtml, escAttr } from './utils.js';
 import { renderDiff } from './diff.js';
+import { ic } from './icons.js';
 
 // ─── Árbol colapsable ─────────────────────────────────────────────────────────
 
@@ -52,7 +53,24 @@ export function renderBranchTree(node, prefix, depth, renderItem) {
   return html;
 }
 
+let _onlyUnpublished = false;
+let _selectedBranch  = null;
+
+export function setSelectedBranch(name) {
+  _selectedBranch = name;
+  document.querySelectorAll('#branchList .branch-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.branch === name);
+  });
+}
+
 export function onBranchFilter() {
+  if (state.branches) renderBranches(state.branches);
+}
+
+export function toggleUnpublishedFilter() {
+  _onlyUnpublished = !_onlyUnpublished;
+  const btn = document.getElementById('btnFilterUnpublished');
+  if (btn) btn.classList.toggle('active', _onlyUnpublished);
   if (state.branches) renderBranches(state.branches);
 }
 
@@ -78,28 +96,40 @@ export function renderBranches(branches) {
     remoteBranches = remoteBranches.filter(b => b.displayName.toLowerCase().includes(filter));
   }
 
+  if (_onlyUnpublished) {
+    localBranches = localBranches.filter(b => _isUnpublished(b.name));
+  }
+
+  function _isUnpublished(name) {
+    const tk = tracking[name];
+    if (!tk) return false;
+    return !tk.hasUpstream || tk.isGone;
+  }
+
   function trackBadge(name) {
     const tk = tracking[name];
     if (!tk) return '';
-    if (!tk.hasUpstream) return `<span class="bi-track bi-no-remote" title="Sin remote">⌀</span>`;
+    if (tk.isGone || !tk.hasUpstream) return `<span class="bi-track bi-no-remote" title="${tk.isGone ? 'La rama remota fue eliminada del servidor' : 'Rama solo local, sin remote'}">${ic.ban(12)}</span>`;
     if (!tk.ahead && !tk.behind) return '';
     let b = '<span class="bi-track">';
-    if (tk.ahead)  b += `<span class="bi-ahead" title="Ahead">↑${tk.ahead}</span>`;
-    if (tk.behind) b += `<span class="bi-behind" title="Behind">↓${tk.behind}</span>`;
+    if (tk.ahead)  b += `<span class="bi-ahead"  title="Ahead">${ic.arrowUp(11)}${tk.ahead}</span>`;
+    if (tk.behind) b += `<span class="bi-behind" title="Behind">${ic.arrowDown(11)}${tk.behind}</span>`;
     return b + '</span>';
   }
 
   function localItem(b, pad) {
-    const leaf = b.name.split('/').pop();
-    const bid  = 'b' + (ctxIdx++);
+    const leaf        = b.name.split('/').pop();
+    const bid         = 'b' + (ctxIdx++);
+    const unpublished = _isUnpublished(b.name);
     ctxBranchData[bid] = { name: b.name, isCurrent: b.current, type: 'local', tracking: tracking[b.name] };
-    return `<div class="branch-item ${b.current ? 'active' : ''}"
+    return `<div class="branch-item ${b.current ? 'active' : ''} ${unpublished ? 'bi-unpublished' : ''} ${_selectedBranch === b.name ? 'selected' : ''}"
+                 data-branch="${escAttr(b.name)}"
                  style="padding-left:${pad}px"
                  onclick="viewBranchLog('${escAttr(b.name)}')"
                  ondblclick="checkoutBranch('${escAttr(b.name)}')"
                  oncontextmenu="branchCtxShow(event,'${bid}')"
                  title="Clic: ver historial · Doble clic: checkout · Clic derecho: opciones">
-      <span class="bi-dot">${b.current ? '●' : '○'}</span>
+      <span class="bi-dot">${b.current ? ic.dotFilled(10) : ic.dotEmpty(10)}</span>
       <span class="bi-name" title="${escAttr(b.name)}">${escHtml(leaf)}</span>
       ${trackBadge(b.name)}
     </div>`;
@@ -109,13 +139,14 @@ export function renderBranches(branches) {
     const leaf = b.displayName.split('/').pop();
     const bid  = 'b' + (ctxIdx++);
     ctxBranchData[bid] = { name: b.displayName, fullName: b.fullRemoteName, type: 'remote' };
-    return `<div class="branch-item remote-branch"
+    return `<div class="branch-item remote-branch ${_selectedBranch === b.fullRemoteName ? 'selected' : ''}"
+                 data-branch="${escAttr(b.fullRemoteName)}"
                  style="padding-left:${pad}px"
                  onclick="viewBranchLog('${escAttr(b.fullRemoteName)}')"
                  ondblclick="checkoutRemoteBranch('${escAttr(b.fullRemoteName)}')"
                  oncontextmenu="branchCtxShow(event,'${bid}')"
                  title="${escAttr(b.fullRemoteName)} · Clic derecho: opciones · Doble clic: checkout">
-      <span class="bi-dot">☁</span>
+      <span class="bi-dot">${ic.cloud(14)}</span>
       <span class="bi-name">${escHtml(leaf)}</span>
     </div>`;
   }

@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { post, opPost } from './api.js';
 import { toast } from './utils.js';
 import { emit } from './bus.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Push / Pull / Fetch ──────────────────────────────────────────────────────
 
@@ -10,19 +11,26 @@ export async function doPush() {
   // Confirmar antes de hacer push directo a rama principal
   const mainBranches = new Set(['main', 'master', window.mainBranch].filter(Boolean));
   if (mainBranches.has(state.currentBranch)) {
-    if (!confirm(`⚠ Estás haciendo push directo a "${state.currentBranch}" (rama principal).\n¿Continuar?`)) return;
+    if (!await dialog.confirm(`Estás haciendo push directo a "${state.currentBranch}" (rama principal).\n¿Continuar?`, { type: 'warn', confirmText: 'Continuar' })) return;
   }
   try {
     const shouldSetUpstream = !(state.repoInfo && state.repoInfo.tracking);
-    // Usar push por lotes solo en el primer push (sin upstream),
-    // para poder subir historiales grandes en partes sin timeout.
-    // Para ramas existentes, git push normal es suficiente (http.postBuffer ya está configurado).
     const batched   = shouldSetUpstream;
     const batchSize = 20;
     const label     = batched ? `↑ Subiendo en lotes…` : '↑ Subiendo cambios…';
-    const result = await opPost('/repo/push', { branch: state.currentBranch, setUpstream: shouldSetUpstream, batched, batchSize }, label);
+    const params    = { branch: state.currentBranch, setUpstream: shouldSetUpstream, batched, batchSize };
+
+    let result = await opPost('/repo/push', params, label);
     if (result === null) return;
+
+    if (result.merged) {
+      if (!await dialog.confirm(result.warning, { type: 'warn', confirmText: 'Push de todas formas' })) return;
+      result = await opPost('/repo/push', { ...params, skipMergeCheck: true }, label);
+      if (result === null) return;
+    }
+
     emit('repo:refresh-branches');
+    emit('repo:refresh-info');
     const batches = result?.batches;
     toast(`Push a "${state.currentBranch}" exitoso ✓${batches > 1 ? ` (${batches} lotes)` : ''}`, 'success');
   } catch (e) { toast(e.message, 'error'); }
@@ -42,6 +50,7 @@ export async function doFetch() {
     const result = await opPost('/repo/fetch', {}, '⇄ Haciendo fetch…');
     if (result === null) return;
     emit('repo:refresh-branches');
+    emit('repo:refresh-info');
     toast('Fetch completado', 'success');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -85,6 +94,7 @@ export function startAutoFetch(minutes = 5) {
     try {
       await post('/repo/fetch', {});
       emit('repo:refresh-branches');
+      emit('repo:refresh-info');
     } catch (_) {}
 
     // Programar el siguiente ciclo solo después de que este haya terminado

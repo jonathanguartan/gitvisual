@@ -40,13 +40,17 @@ router.get('/branches/tracking', async (req, res) => {
     const result = {};
     for (const line of out.trim().split('\n').filter(Boolean)) {
       const [name, upstream, track] = line.split('|');
+      const trimmedUpstream = upstream?.trim() || null;
       const aheadMatch  = track?.match(/ahead (\d+)/);
       const behindMatch = track?.match(/behind (\d+)/);
+      // [gone] aparece cuando el remote de la rama fue borrado en el servidor
+      const isGone = !!(trimmedUpstream && track?.includes('[gone]'));
       result[name.trim()] = {
-        upstream:    upstream?.trim() || null,
-        hasUpstream: !!(upstream?.trim()),
-        ahead:       aheadMatch  ? parseInt(aheadMatch[1])  : 0,
-        behind:      behindMatch ? parseInt(behindMatch[1]) : 0,
+        upstream:    trimmedUpstream,
+        hasUpstream: !!trimmedUpstream,
+        isGone,
+        ahead:  aheadMatch  ? Number.parseInt(aheadMatch[1])  : 0,
+        behind: behindMatch ? Number.parseInt(behindMatch[1]) : 0,
       };
     }
     res.json(result);
@@ -277,9 +281,11 @@ router.post('/merge', async (req, res) => {
 });
 
 router.post('/cherry-pick', async (req, res) => {
-  const { repoPath, commitHash, targetBranch } = req.body;
+  const { repoPath, commitHash, targetBranch, mainline } = req.body;
   if (!commitHash || commitHash.startsWith('-')) return res.status(400).json({ error: 'Hash de commit inválido' });
   if (targetBranch && !isValidRefName(targetBranch)) return res.status(400).json({ error: 'Nombre de rama destino inválido' });
+  if (mainline !== undefined && (!Number.isInteger(mainline) || mainline < 1))
+    return res.status(400).json({ error: 'El número de padre debe ser un entero positivo' });
   try {
     const g = git(repoPath);
     const status = await g.status();
@@ -288,11 +294,16 @@ router.post('/cherry-pick', async (req, res) => {
       if (!branches.all.includes(targetBranch)) await g.checkoutLocalBranch(targetBranch);
       else                                       await g.checkout(targetBranch);
     }
-    await g.raw(['cherry-pick', commitHash]);
+    const args = ['cherry-pick'];
+    if (mainline) args.push('-m', String(mainline));
+    args.push(commitHash);
+    await g.raw(args);
     res.json({ success: true });
   } catch (e) {
     if (e.message.includes('CONFLICT'))
       return res.status(500).json({ error: 'Conflictos detectados durante el cherry-pick. Resuélvelos manualmente.' });
+    if (e.message.includes('is a merge but no -m option'))
+      return res.status(422).json({ error: 'MERGE_COMMIT' });
     handleGitError(res, e);
   }
 });
@@ -331,7 +342,7 @@ router.get('/branches/merged', async (req, res) => {
 // Squash de los últimos N commits en uno solo
 router.post('/branch/squash', async (req, res) => {
   const { repoPath, count, message } = req.body;
-  const n = parseInt(count);
+  const n = Number.parseInt(count);
   if (!n || n < 2) return res.status(400).json({ error: 'Selecciona al menos 2 commits para hacer squash' });
   if (!message?.trim()) return res.status(400).json({ error: 'El mensaje del commit no puede estar vacío' });
   try {

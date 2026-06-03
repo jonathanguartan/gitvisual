@@ -31,7 +31,7 @@ router.get('/recover/scan', async (req, res) => {
             const parts = log.trim().split('|');
             if (parts.length >= 4) {
               stashes.push({
-                timestamp: parseInt(parts[0]) || 0,
+                timestamp: Number.parseInt(parts[0]) || 0,
                 hash:      parts[1].trim().substring(0, 8),
                 fullHash:  parts[1].trim(),
                 message:   parts[2].trim(),

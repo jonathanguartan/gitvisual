@@ -163,6 +163,14 @@
   z-index: 2;
 }
 
+.log-load-more {
+  padding: 10px 16px;
+  font-size: 11px;
+  color: var(--tx3);
+  text-align: center;
+  min-height: 32px;
+}
+
 .log-item {
   display: flex;
   align-items: center;

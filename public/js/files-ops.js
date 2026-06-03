@@ -5,6 +5,7 @@ import { fileState } from './files-state.js';
 import { state } from './state.js';
 import { emit } from './bus.js';
 import { defineContextMenu, getContextMenu } from './gvm/gvm-ctx-menus.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Single-file operations ───────────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ export async function unstageFile(file) {
 }
 
 export async function discardFile(file) {
-  if (!confirm(`¿Descartar todos los cambios en "${file}"? Esta acción no se puede deshacer.`)) return;
+  if (!await dialog.confirm(`¿Descartar todos los cambios en "${file}"?\nEsta acción no se puede deshacer.`, { type: 'danger', confirmText: 'Descartar' })) return;
   try {
     await opPost('/repo/discard', { files: [file] }, 'Descartando cambios…');
     emit('repo:refresh-status');
@@ -29,7 +30,7 @@ export async function discardFile(file) {
 
 export async function removeFile(file) {
   if (!file) return;
-  if (!confirm(`¿Eliminar "${file}" del disco? Esta acción es permanente y no se puede deshacer.`)) return;
+  if (!await dialog.confirm(`¿Eliminar "${file}" del disco?\nEsta acción es permanente y no se puede deshacer.`, { type: 'danger', confirmText: 'Eliminar' })) return;
   try {
     await opPost('/repo/delete-path', { path: file }, 'Eliminando…');
     emit('repo:refresh-status');
@@ -39,7 +40,7 @@ export async function removeFile(file) {
 
 export async function removeFolder(folderPath) {
   if (!folderPath) return;
-  if (!confirm(`¿Eliminar la carpeta "${folderPath}/" y TODO su contenido del disco?\nEsta acción es permanente y no se puede deshacer.`)) return;
+  if (!await dialog.confirm(`¿Eliminar la carpeta "${folderPath}/" y TODO su contenido del disco?\nEsta acción es permanente y no se puede deshacer.`, { type: 'danger', confirmText: 'Eliminar' })) return;
   try {
     await opPost('/repo/delete-path', { path: folderPath }, 'Eliminando carpeta…');
     emit('repo:refresh-status');
@@ -112,7 +113,7 @@ export function fileCtxShow(event, path, listType, isUntracked) {
 export function fileCtxAction(action) { getContextMenu('fileCtxMenu').action(action); }
 
 async function _untrackFile(file) {
-  if (!confirm(`¿Quitar "${file}" del tracking de git?\nEl archivo quedará como no rastreado pero NO se eliminará del disco.`)) return;
+  if (!await dialog.confirm(`¿Quitar "${file}" del tracking de git?\nEl archivo quedará como no rastreado pero NO se eliminará del disco.`, { type: 'warn', confirmText: 'Quitar' })) return;
   try {
     await opPost('/repo/untrack', { files: [file] }, 'Quitando del tracking…');
     emit('repo:refresh-status');
@@ -186,12 +187,12 @@ defineContextMenu('fileCtxMenu', {
           break;
         case 'discard':
           if (!files.length) { toast('No hay cambios que descartar', 'info'); return; }
-          if (!confirm(`¿Descartar cambios en ${files.length} archivo(s) de "${folderPath}/"? Esta acción no se puede deshacer.`)) return;
+          if (!await dialog.confirm(`¿Descartar cambios en ${files.length} archivo(s) de "${folderPath}/"?\nEsta acción no se puede deshacer.`, { type: 'danger', confirmText: 'Descartar' })) return;
           try { await opPost('/repo/discard', { files }, 'Descartando cambios…'); emit('repo:refresh-status'); } catch (e) { toast(e.message, 'error'); }
           break;
         case 'untrack':
           if (!files.length) { toast('No hay archivos rastreados en esta carpeta', 'info'); return; }
-          if (!confirm(`¿Quitar ${files.length} archivo(s) de "${folderPath}/" del tracking?\nNO se eliminarán del disco.`)) return;
+          if (!await dialog.confirm(`¿Quitar ${files.length} archivo(s) de "${folderPath}/" del tracking?\nNO se eliminarán del disco.`, { type: 'warn', confirmText: 'Quitar' })) return;
           try { await opPost('/repo/untrack', { files }, 'Quitando del tracking…'); emit('repo:refresh-status'); toast(`${files.length} archivo(s) quitados del tracking ✓`, 'success'); } catch (e) { toast(e.message, 'error'); }
           break;
         case 'delete':        await removeFolder(folderPath); break;

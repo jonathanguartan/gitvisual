@@ -1,11 +1,43 @@
-import { state } from './state.js';
 import { opPost, post } from './api.js';
 import { toast } from './utils.js';
 import { showDiff } from './diff.js';
 import { fileState } from './files-state.js';
+import { state } from './state.js';
 import { emit } from './bus.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Selection UI helpers ─────────────────────────────────────────────────────
+
+export function resetFilePanel() {
+  clearActiveDiff();
+  clearFileSelection();
+  fileState.activeTreeItem       = null;
+  fileState.lastClicked.staged   = null;
+  fileState.lastClicked.unstaged = null;
+  fileState.lastClicked.clean    = null;
+  const dv = document.getElementById('diffView');
+  if (dv) dv.innerHTML = '<div class="diff-hint">Selecciona un archivo para ver los cambios</div>';
+}
+
+function _updateFolderCheckboxes(listType) {
+  const containerId = listType === 'staged' ? 'stagedFiles' : 'unstagedFiles';
+  const allFiles = state.status?.files || [];
+  const listPaths = (listType === 'staged'
+    ? allFiles.filter(f => f.index !== ' ' && f.index !== '?')
+    : allFiles.filter(f => f.working_dir !== ' ')
+  ).map(f => f.path);
+  const sel = fileState.selected[listType];
+  document.querySelectorAll(`#${containerId} .tree-folder`).forEach(folderEl => {
+    const fp = folderEl.dataset.path;
+    if (!fp) return;
+    const childPaths = listPaths.filter(p => p.startsWith(fp + '/'));
+    const cb = folderEl.querySelector('.folder-checkbox');
+    if (!cb || !childPaths.length) return;
+    const n = childPaths.filter(p => sel.has(p)).length;
+    cb.checked       = n === childPaths.length;
+    cb.indeterminate = n > 0 && n < childPaths.length;
+  });
+}
 
 export function updateSelectionBars() {
   const sn = fileState.selected.staged.size;
@@ -20,6 +52,16 @@ export function updateSelectionBars() {
     ub.style.display = un > 0 ? '' : 'none';
     document.getElementById('unstagedSelCount').textContent = `${un} seleccionado${un !== 1 ? 's' : ''}`;
   }
+  _updateFolderCheckboxes('staged');
+  _updateFolderCheckboxes('unstaged');
+}
+
+export function checkboxItemClick(event, path, listType, staged) {
+  event.stopPropagation();
+  toggleFileSelection(path, listType);
+  fileState.lastClicked[listType] = path;
+  setActiveDiff(path, listType);
+  showDiff(path, staged);
 }
 
 export function toggleFileSelection(path, listType) {
@@ -28,7 +70,10 @@ export function toggleFileSelection(path, listType) {
   else               sel.add(path);
   updateSelectionBars();
   document.querySelectorAll(`.file-item[data-list="${listType}"]`).forEach(el => {
-    el.classList.toggle('selected', sel.has(el.dataset.path));
+    const isSel = sel.has(el.dataset.path);
+    el.classList.toggle('selected', isSel);
+    const cb = el.querySelector('.file-checkbox');
+    if (cb) cb.checked = isSel;
   });
 }
 
@@ -39,7 +84,11 @@ export function clearFileSelection(listType) {
     fileState.selected.staged.clear();
     fileState.selected.unstaged.clear();
   }
-  document.querySelectorAll('.file-item.selected').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.file-item.selected').forEach(el => {
+    el.classList.remove('selected');
+    const cb = el.querySelector('.file-checkbox');
+    if (cb) cb.checked = false;
+  });
   updateSelectionBars();
 }
 
@@ -63,10 +112,9 @@ export function clearActiveDiff() {
 // ─── File list for shift-select ───────────────────────────────────────────────
 
 function _getFilePathsForList(listType) {
-  const files = state.status?.files || [];
-  return listType === 'staged'
-    ? files.filter(f => f.index !== ' ' && f.index !== '?').map(f => f.path)
-    : files.filter(f => f.working_dir !== ' ').map(f => f.path);
+  const id = listType === 'staged' ? 'stagedFiles' : 'unstagedFiles';
+  return [...document.querySelectorAll(`#${id} .file-item[data-list="${listType}"]`)]
+    .map(el => el.dataset.path);
 }
 
 // ─── Click handler ────────────────────────────────────────────────────────────
@@ -105,12 +153,16 @@ export function fileItemClick(event, _p, _lt, staged) {
     const currIdx = paths.indexOf(path);
     if (lastIdx === -1 || currIdx === -1) {
       toggleFileSelection(path, listType);
+      fileState.lastClicked[listType] = path;
     } else {
       const [from, to] = lastIdx < currIdx ? [lastIdx, currIdx] : [currIdx, lastIdx];
       for (let i = from; i <= to; i++) fileState.selected[listType].add(paths[i]);
       updateSelectionBars();
       document.querySelectorAll(`.file-item[data-list="${listType}"]`).forEach(el => {
-        el.classList.toggle('selected', fileState.selected[listType].has(el.dataset.path));
+        const isSel = fileState.selected[listType].has(el.dataset.path);
+        el.classList.toggle('selected', isSel);
+        const cb = el.querySelector('.file-checkbox');
+        if (cb) cb.checked = isSel;
       });
     }
   } else {
@@ -121,6 +173,31 @@ export function fileItemClick(event, _p, _lt, staged) {
     fileState.activeTreeItem = { kind: 'file', path, listType };
     document.querySelectorAll('.tree-folder.tree-active').forEach(e => e.classList.remove('tree-active'));
   }
+}
+
+// ─── Folder selection ─────────────────────────────────────────────────────────
+
+export function folderCheckboxClick(event, folderPath, listType) {
+  event.stopPropagation();
+  if (listType === 'clean') return;
+  const allFiles = state.status?.files || [];
+  const prefix = folderPath + '/';
+  const childPaths = (listType === 'staged'
+    ? allFiles.filter(f => f.index !== ' ' && f.index !== '?')
+    : allFiles.filter(f => f.working_dir !== ' ')
+  ).filter(f => f.path.startsWith(prefix)).map(f => f.path);
+  if (!childPaths.length) return;
+  const sel = fileState.selected[listType];
+  const allSelected = childPaths.every(p => sel.has(p));
+  if (allSelected) childPaths.forEach(p => sel.delete(p));
+  else             childPaths.forEach(p => sel.add(p));
+  updateSelectionBars();
+  document.querySelectorAll(`.file-item[data-list="${listType}"]`).forEach(el => {
+    const isSel = sel.has(el.dataset.path);
+    el.classList.toggle('selected', isSel);
+    const cb = el.querySelector('.file-checkbox');
+    if (cb) cb.checked = isSel;
+  });
 }
 
 // ─── Batch operations ─────────────────────────────────────────────────────────
@@ -148,7 +225,7 @@ export async function unstageSelected() {
 export async function discardSelected() {
   const files = [...fileState.selected.unstaged];
   if (!files.length) return;
-  if (!confirm(`¿Descartar cambios en ${files.length} archivo(s)? Esta acción no se puede deshacer.`)) return;
+  if (!await dialog.confirm(`¿Descartar cambios en ${files.length} archivo(s)?\nEsta acción no se puede deshacer.`, { type: 'danger', confirmText: 'Descartar' })) return;
   try {
     await opPost('/repo/discard', { files }, 'Descartando cambios…');
     clearFileSelection('unstaged');
@@ -159,7 +236,7 @@ export async function discardSelected() {
 export async function untrackSelected() {
   const files = [...fileState.selected.staged];
   if (!files.length) return;
-  if (!confirm(`¿Quitar ${files.length} archivo(s) del tracking de git?\nQuedarán como no rastreados pero NO se eliminarán del disco.`)) return;
+  if (!await dialog.confirm(`¿Quitar ${files.length} archivo(s) del tracking de git?\nQuedarán como no rastreados pero NO se eliminarán del disco.`, { type: 'warn', confirmText: 'Quitar' })) return;
   try {
     await opPost('/repo/untrack', { files }, 'Quitando del tracking…');
     clearFileSelection('staged');

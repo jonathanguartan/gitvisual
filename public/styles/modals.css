@@ -698,6 +698,31 @@
   opacity: .75;
 }
 
+/* ─── GvmDialog ──────────────────────────────────────────────────────────────── */
+.gvm-dlg-card  { animation: modalIn .16s cubic-bezier(.34,1.25,.64,1); }
+.gvm-dlg-hdr   {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.gvm-dlg-icon  { font-size: 18px; line-height: 1; flex-shrink: 0; }
+.gvm-dlg-title { font-size: 14px; font-weight: 600; color: var(--tx0); }
+.gvm-dlg-danger .gvm-dlg-icon { color: var(--red);    }
+.gvm-dlg-warn   .gvm-dlg-icon { color: var(--yellow); }
+.gvm-dlg-info   .gvm-dlg-icon { color: var(--blue);   }
+.gvm-dlg-body  {
+  padding: 16px 20px;
+  color: var(--tx1); font-size: 13px; line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-y: auto;
+  min-height: 0;
+}
+.gvm-dlg-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border);
+}
+
 /* Small empty state for branch lists */
 .empty-state-small {
   padding: 8px 12px;

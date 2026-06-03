@@ -58,6 +58,7 @@
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  position: relative;
 }
 .panel-collapsible.collapsed {
   flex: 0 0 auto !important;
@@ -265,7 +266,26 @@
 }
 .bi-ahead  { color: var(--green);  font-size: 10px; font-weight: 600; }
 .bi-behind { color: var(--yellow); font-size: 10px; font-weight: 600; }
-.bi-no-remote { color: var(--tx3); font-size: 10px; margin-left: auto; }
+.bi-no-remote { color: var(--tx3);   font-size: 10px; margin-left: auto; }
+
+/* Ramas locales sin contraparte en el servidor */
+.branch-item.bi-unpublished {
+  border-left: 2px solid var(--yellow);
+  box-sizing: border-box;
+}
+.branch-item.bi-unpublished .bi-name {
+  color: var(--yellow);
+}
+.branch-item.bi-unpublished.active .bi-name {
+  color: var(--green); /* rama activa mantiene su color */
+}
+
+/* Botón de filtro activo */
+#btnFilterUnpublished.active {
+  background: var(--yellow);
+  color: var(--base);
+  border-color: var(--yellow);
+}
 
 /* ─── Context Menus (archivos, commits, ramas) ───────────────────────────────── */
 @keyframes ctx-appear {
@@ -379,15 +399,38 @@
 .file-item[draggable="true"]:active { cursor: grabbing; }
 
 .sel-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 8px;
-  background: rgba(137,180,250,.1);
-  border-bottom: 1px solid rgba(137,180,250,.2);
+  padding: 4px 10px;
+  min-height: 29px;
+  background: var(--bg1);
+  border-bottom: 1px solid rgba(137,180,250,.35);
+  box-shadow: 0 1px 6px rgba(0,0,0,.25);
   font-size: 11px;
+  z-index: 2;
 }
-.sel-count { color: var(--blue); flex: 1; }
+.sel-count { color: var(--blue); flex: 1; font-weight: 600; }
+
+/* ─── SVG Icons — sprite via <use href="#ic-NAME"> ───────────────────────────── */
+.gvm-ic {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  pointer-events: none;
+  overflow: visible;
+  /* Atributos visuales heredados por el shadow DOM del <use> */
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gvm-ic.sw-bold  { stroke-width: 2.5; }
+.gvm-ic.ic-filled { fill: currentColor; stroke: none; }
+.btn-icon { line-height: 1; }
 
 /* ─── Drag & Drop ────────────────────────────────────────────────────────────── */
 .file-list.drop-active {

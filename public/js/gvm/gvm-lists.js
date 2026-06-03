@@ -68,7 +68,7 @@ export function initAllGvmLists() {
       items:      [],
       selMode:    ds.gvmSelmode    || 'single',
       virtual:    'gvmVirtual'    in ds,
-      itemHeight: parseFloat(ds.gvmItemHeight) || 36,
+      itemHeight: Number.parseFloat(ds.gvmItemHeight) || 36,
       emptyHtml:  ds.gvmEmpty ? `<div class="gvm-empty">${ds.gvmEmpty}</div>` : '',
       ...callbacks,
     });

@@ -6,6 +6,7 @@ import { parseDiffByFile } from './diff.js';
 import { defineEditor, getEditor } from './gvm/gvm-editors.js';
 import { fileIcon } from './files.js';
 import { emit } from './bus.js';
+import { dialog } from './gvm/gvm-dialog.js';
 
 // ─── Render ───────────────────────────────────────────────────────────────────
 
@@ -127,6 +128,7 @@ async function _applyWithConflictHandling(action, ref) {
 
   if (result?.conflict && result.type === 'merge') {
     emit('repo:refresh-status'); await _refreshStash();
+    window.switchToPanel?.('changes');
     toast(
       `${ref} aplicado con conflictos. Resuélvelos en la pestaña de Cambios${action === 'pop' ? ' y luego elimina el stash manualmente' : ''}.`,
       'warn'
@@ -135,12 +137,55 @@ async function _applyWithConflictHandling(action, ref) {
   }
 
   if (result?.conflict && result.type === 'prevented') {
-    const ok = confirm(
-      `"${ref}" tiene conflictos con los cambios actuales del repo.\n\n` +
-      `¿Guardar automáticamente tus cambios actuales en un nuevo stash y luego aplicar?`
-    );
-    if (!ok) return;
-    await opPost(`/repo/stash/${action}`, { ref, autoStash: true }, `Aplicando ${ref}…`);
+    const identical  = result.identical  || [];
+    const different  = result.different  || [];
+    const allSame    = identical.length > 0 && different.length === 0;
+
+    // Construir detalle de archivos para mostrar en el diálogo
+    let detail = '';
+    if (identical.length || different.length) {
+      if (different.length) detail += '\n\nArchivos con cambios distintos:\n' + different.map(f => `  • ${f}`).join('\n');
+      if (identical.length) detail += '\n\nArchivos idénticos al stash:\n'    + identical.map(f => `  • ${f}`).join('\n');
+    } else if (result.rawMsg) {
+      const lines = result.rawMsg.replace(/^error:\s*/gm, '').split('\n');
+      const pivot = lines.findIndex(l => /would be overwritten|already exists/.test(l));
+      const start = pivot >= 0 ? Math.max(0, pivot - 1) : Math.max(0, lines.length - 10);
+      detail = `\n\nDetalle de git:\n${lines.slice(start, start + 10).join('\n').trim()}`;
+    }
+
+    if (allSame) {
+      // Todos los archivos bloqueados son idénticos → ofrecer descarte directo
+      const ok = await dialog.confirm(
+        `"${ref}" está bloqueado por ${identical.length} archivo${identical.length > 1 ? 's' : ''} con contenido idéntico al stash.${detail}\n\n` +
+        `¿Descartar esos archivos del working tree y aplicar el stash?`,
+        { type: 'info', confirmText: 'Descartar y aplicar' }
+      );
+      if (!ok) return;
+      const discardResult = await opPost(`/repo/stash/${action}`, { ref, discardFiles: identical }, `Aplicando ${ref}…`);
+      if (discardResult === null) return;
+      if (discardResult?.conflict && discardResult.type === 'merge') {
+        emit('repo:refresh-status'); await _refreshStash();
+        window.switchToPanel?.('changes');
+        toast(`${ref} aplicado con conflictos. Resuélvelos en la pestaña de Cambios${action === 'pop' ? ' y luego elimina el stash manualmente' : ''}.`, 'warn');
+        return;
+      }
+    } else {
+      // Hay archivos realmente distintos → auto-stash
+      const ok = await dialog.confirm(
+        `"${ref}" tiene conflictos con los cambios actuales del repo.${detail}\n\n` +
+        `¿Guardar automáticamente tus cambios actuales en un nuevo stash y luego aplicar?`,
+        { type: 'warn', confirmText: 'Guardar y aplicar' }
+      );
+      if (!ok) return;
+      const autoResult = await opPost(`/repo/stash/${action}`, { ref, autoStash: true }, `Aplicando ${ref}…`);
+      if (autoResult === null) return;
+      if (autoResult?.conflict && autoResult.type === 'merge') {
+        emit('repo:refresh-status'); await _refreshStash();
+        window.switchToPanel?.('changes');
+        toast(`${ref} aplicado con conflictos. Resuélvelos en la pestaña de Cambios antes de continuar.`, 'warn');
+        return;
+      }
+    }
   }
 
   const label = action === 'pop' ? 'aplicado y eliminado' : 'aplicado (conservado en la lista)';
@@ -159,7 +204,7 @@ export async function stashApply(ref) {
 }
 
 export async function stashDrop(ref) {
-  if (!confirm(`¿Eliminar ${ref}? Esta acción no se puede deshacer.`)) return;
+  if (!await dialog.confirm(`¿Eliminar ${ref}?\nEsta acción no se puede deshacer.`, { type: 'danger', confirmText: 'Eliminar' })) return;
   try {
     await opPost('/repo/stash/drop', { ref }, `Eliminando ${ref}…`);
     await _refreshStash();
